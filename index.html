@@ -617,11 +617,18 @@
             });
         }
 
-        // Pricing click → 플랜 기억 + 이메일 폼으로 이동
+        // Pricing click → 플랜 기억 + 선택 표시 + 이메일 폼으로 이동
         function trackPricing(plan) {
             selectedPlan = plan;
+            // 선택된 플랜 시각적 표시
+            document.querySelectorAll('.pricing-card').forEach(function(card) {
+                card.style.opacity = '0.6';
+            });
+            event.currentTarget.closest('.pricing-card').style.opacity = '1';
+            event.currentTarget.closest('.pricing-card').style.border = '2px solid #667eea';
+            // 이메일 폼으로 스크롤
             document.getElementById('signup').scrollIntoView({ behavior: 'smooth' });
-            document.getElementById('emailInput').focus({ preventScroll: true });
+            setTimeout(function() { document.getElementById('emailInput').focus(); }, 500);
         }
 
         // Smooth scroll for hero CTA
