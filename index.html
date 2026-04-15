@@ -592,20 +592,22 @@
     <script>
         const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbz_OMWYUCqNUQVuJRzr-c2xWuu4dg3sXZvayTODtZNOSINa47K45VTCFjbTi0gZp-DR/exec';
 
+        var selectedPlan = '';
+
         // Email form submission
         function handleSubmit(e) {
             e.preventDefault();
-            const email = document.getElementById('emailInput').value;
-            const btn = e.target.querySelector('button');
+            var email = document.getElementById('emailInput').value;
+            var btn = e.target.querySelector('button');
             btn.textContent = '전송 중...';
             btn.disabled = true;
 
-            // Google Apps Script로 전송
+            // Google Apps Script로 전송 (이메일 + 선택한 플랜)
             fetch(SCRIPT_URL, {
                 method: 'POST',
                 mode: 'no-cors',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email: email })
+                body: JSON.stringify({ email: email, plan: selectedPlan })
             }).then(function() {
                 document.getElementById('emailForm').style.display = 'none';
                 document.getElementById('successMsg').style.display = 'block';
@@ -615,18 +617,11 @@
             });
         }
 
-        // Pricing click tracking
+        // Pricing click → 플랜 기억 + 이메일 폼으로 이동
         function trackPricing(plan) {
-            // Google Apps Script로 가격 클릭 기록
-            fetch(SCRIPT_URL, {
-                method: 'POST',
-                mode: 'no-cors',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email: '', plan: plan })
-            });
-
-            // 알림 신청으로 스크롤
+            selectedPlan = plan;
             document.getElementById('signup').scrollIntoView({ behavior: 'smooth' });
+            document.getElementById('emailInput').focus({ preventScroll: true });
         }
 
         // Smooth scroll for hero CTA
