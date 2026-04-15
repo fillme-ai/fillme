@@ -590,41 +590,40 @@
     </footer>
 
     <script>
+        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbz_OMWYUCqNUQVuJRzr-c2xWuu4dg3sXZvayTODtZNOSINa47K45VTCFjbTi0gZp-DR/exec';
+
         // Email form submission
         function handleSubmit(e) {
             e.preventDefault();
             const email = document.getElementById('emailInput').value;
+            const btn = e.target.querySelector('button');
+            btn.textContent = '전송 중...';
+            btn.disabled = true;
 
-            // Google Forms로 전송 (아래 URL을 실제 Google Form URL로 교체 필요)
-            const formData = new FormData();
-            formData.append('entry.EMAIL_FIELD_ID', email);
-
-            // 로컬 스토리지에 저장 (백업)
-            const emails = JSON.parse(localStorage.getItem('fillme_emails') || '[]');
-            emails.push({ email: email, timestamp: new Date().toISOString() });
-            localStorage.setItem('fillme_emails', JSON.stringify(emails));
-
-            // UI 업데이트
-            document.getElementById('emailForm').style.display = 'none';
-            document.getElementById('successMsg').style.display = 'block';
-
-            // 이벤트 추적
-            if (typeof gtag === 'function') {
-                gtag('event', 'signup', { event_category: 'engagement' });
-            }
+            // Google Apps Script로 전송
+            fetch(SCRIPT_URL, {
+                method: 'POST',
+                mode: 'no-cors',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email: email })
+            }).then(function() {
+                document.getElementById('emailForm').style.display = 'none';
+                document.getElementById('successMsg').style.display = 'block';
+            }).catch(function() {
+                document.getElementById('emailForm').style.display = 'none';
+                document.getElementById('successMsg').style.display = 'block';
+            });
         }
 
         // Pricing click tracking
         function trackPricing(plan) {
-            // 로컬 스토리지에 저장
-            const clicks = JSON.parse(localStorage.getItem('fillme_pricing') || '[]');
-            clicks.push({ plan: plan, timestamp: new Date().toISOString() });
-            localStorage.setItem('fillme_pricing', JSON.stringify(clicks));
-
-            // 이벤트 추적
-            if (typeof gtag === 'function') {
-                gtag('event', 'pricing_click', { event_category: 'engagement', event_label: plan });
-            }
+            // Google Apps Script로 가격 클릭 기록
+            fetch(SCRIPT_URL, {
+                method: 'POST',
+                mode: 'no-cors',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email: '', plan: plan })
+            });
 
             // 알림 신청으로 스크롤
             document.getElementById('signup').scrollIntoView({ behavior: 'smooth' });
