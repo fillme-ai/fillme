@@ -1,0 +1,641 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fillme - 이력서 자동 입력</title>
+    <meta name="description" content="이력서 한 번 올리면, 어떤 기업 채용 사이트든 자동으로 채워드립니다.">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Noto Sans KR', sans-serif;
+            color: #1a1a2e;
+            background: #ffffff;
+            line-height: 1.6;
+        }
+
+        /* Hero Section */
+        .hero {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            padding: 2rem;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .hero-badge {
+            display: inline-block;
+            background: rgba(255,255,255,0.2);
+            padding: 0.4rem 1rem;
+            border-radius: 50px;
+            font-size: 0.9rem;
+            margin-bottom: 2rem;
+            backdrop-filter: blur(10px);
+        }
+
+        .hero h1 {
+            font-size: 3rem;
+            font-weight: 800;
+            margin-bottom: 1.5rem;
+            line-height: 1.2;
+        }
+
+        .hero h1 span {
+            display: block;
+            font-size: 1.5rem;
+            font-weight: 400;
+            opacity: 0.9;
+            margin-top: 0.5rem;
+        }
+
+        .hero p {
+            font-size: 1.2rem;
+            max-width: 600px;
+            opacity: 0.9;
+            margin-bottom: 2.5rem;
+        }
+
+        .hero-cta {
+            display: inline-block;
+            background: white;
+            color: #667eea;
+            padding: 1rem 2.5rem;
+            border-radius: 50px;
+            font-size: 1.1rem;
+            font-weight: 700;
+            text-decoration: none;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .hero-cta:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+
+        /* Pain Section */
+        .pain {
+            padding: 5rem 2rem;
+            text-align: center;
+            background: #f8f9ff;
+        }
+
+        .pain h2 {
+            font-size: 2rem;
+            margin-bottom: 1rem;
+            color: #1a1a2e;
+        }
+
+        .pain .subtitle {
+            font-size: 1.1rem;
+            color: #666;
+            max-width: 600px;
+            margin: 0 auto 3rem;
+        }
+
+        .pain-cards {
+            display: flex;
+            gap: 2rem;
+            max-width: 900px;
+            margin: 0 auto;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .pain-card {
+            background: white;
+            padding: 2rem;
+            border-radius: 16px;
+            flex: 1;
+            min-width: 250px;
+            max-width: 280px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.06);
+            text-align: left;
+        }
+
+        .pain-card .emoji {
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .pain-card h3 {
+            font-size: 1.1rem;
+            margin-bottom: 0.5rem;
+            color: #1a1a2e;
+        }
+
+        .pain-card p {
+            font-size: 0.95rem;
+            color: #666;
+        }
+
+        /* How It Works */
+        .how {
+            padding: 5rem 2rem;
+            text-align: center;
+        }
+
+        .how h2 {
+            font-size: 2rem;
+            margin-bottom: 3rem;
+        }
+
+        .steps {
+            display: flex;
+            gap: 2rem;
+            max-width: 900px;
+            margin: 0 auto;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .step {
+            flex: 1;
+            min-width: 220px;
+            max-width: 280px;
+        }
+
+        .step-number {
+            width: 60px;
+            height: 60px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin: 0 auto 1rem;
+        }
+
+        .step h3 {
+            font-size: 1.1rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .step p {
+            font-size: 0.95rem;
+            color: #666;
+        }
+
+        /* Stats */
+        .stats {
+            padding: 4rem 2rem;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            text-align: center;
+        }
+
+        .stats-grid {
+            display: flex;
+            gap: 3rem;
+            max-width: 700px;
+            margin: 0 auto;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .stat {
+            flex: 1;
+            min-width: 150px;
+        }
+
+        .stat .number {
+            font-size: 3rem;
+            font-weight: 800;
+        }
+
+        .stat .label {
+            font-size: 1rem;
+            opacity: 0.9;
+        }
+
+        /* CTA Section */
+        .cta {
+            padding: 5rem 2rem;
+            text-align: center;
+            background: #f8f9ff;
+        }
+
+        .cta h2 {
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .cta .subtitle {
+            font-size: 1.1rem;
+            color: #666;
+            margin-bottom: 2rem;
+        }
+
+        .form-container {
+            max-width: 500px;
+            margin: 0 auto;
+        }
+
+        .email-form {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .email-form input {
+            flex: 1;
+            padding: 1rem 1.5rem;
+            border: 2px solid #e0e0e0;
+            border-radius: 12px;
+            font-size: 1rem;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        .email-form input:focus {
+            border-color: #667eea;
+        }
+
+        .email-form button {
+            padding: 1rem 2rem;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-size: 1rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: transform 0.2s, opacity 0.2s;
+            white-space: nowrap;
+        }
+
+        .email-form button:hover {
+            transform: translateY(-1px);
+            opacity: 0.9;
+        }
+
+        .form-note {
+            font-size: 0.85rem;
+            color: #999;
+        }
+
+        .success-message {
+            display: none;
+            background: #e8f5e9;
+            color: #2e7d32;
+            padding: 1rem;
+            border-radius: 12px;
+            font-weight: 600;
+        }
+
+        /* Pricing Preview */
+        .pricing {
+            padding: 5rem 2rem;
+            text-align: center;
+        }
+
+        .pricing h2 {
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .pricing .subtitle {
+            font-size: 1.1rem;
+            color: #666;
+            margin-bottom: 3rem;
+        }
+
+        .pricing-cards {
+            display: flex;
+            gap: 1.5rem;
+            max-width: 800px;
+            margin: 0 auto;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .pricing-card {
+            background: white;
+            border: 2px solid #e0e0e0;
+            border-radius: 16px;
+            padding: 2rem;
+            flex: 1;
+            min-width: 220px;
+            max-width: 250px;
+            cursor: pointer;
+            transition: transform 0.2s, border-color 0.2s;
+        }
+
+        .pricing-card:hover {
+            transform: translateY(-4px);
+            border-color: #667eea;
+        }
+
+        .pricing-card.popular {
+            border-color: #667eea;
+            position: relative;
+        }
+
+        .pricing-card.popular::before {
+            content: "추천";
+            position: absolute;
+            top: -12px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            padding: 0.2rem 1rem;
+            border-radius: 50px;
+            font-size: 0.8rem;
+            font-weight: 700;
+        }
+
+        .pricing-card h3 {
+            font-size: 1.1rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .pricing-card .price {
+            font-size: 2rem;
+            font-weight: 800;
+            color: #667eea;
+            margin-bottom: 0.5rem;
+        }
+
+        .pricing-card .price span {
+            font-size: 0.9rem;
+            font-weight: 400;
+            color: #999;
+        }
+
+        .pricing-card ul {
+            list-style: none;
+            text-align: left;
+            margin-top: 1rem;
+        }
+
+        .pricing-card ul li {
+            padding: 0.3rem 0;
+            font-size: 0.9rem;
+            color: #666;
+        }
+
+        .pricing-card ul li::before {
+            content: "✓ ";
+            color: #667eea;
+            font-weight: 700;
+        }
+
+        .pricing-card .select-btn {
+            display: block;
+            width: 100%;
+            margin-top: 1.5rem;
+            padding: 0.8rem;
+            border: 2px solid #667eea;
+            background: transparent;
+            color: #667eea;
+            border-radius: 10px;
+            font-size: 0.95rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s, color 0.2s;
+        }
+
+        .pricing-card.popular .select-btn {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            border-color: transparent;
+        }
+
+        .pricing-card .select-btn:hover {
+            background: #667eea;
+            color: white;
+        }
+
+        /* Footer */
+        footer {
+            padding: 2rem;
+            text-align: center;
+            color: #999;
+            font-size: 0.85rem;
+        }
+
+        /* Mobile */
+        @media (max-width: 768px) {
+            .hero h1 {
+                font-size: 2rem;
+            }
+
+            .hero h1 span {
+                font-size: 1.2rem;
+            }
+
+            .hero p {
+                font-size: 1rem;
+            }
+
+            .email-form {
+                flex-direction: column;
+            }
+
+            .email-form button {
+                width: 100%;
+            }
+
+            .pain-cards, .steps, .pricing-cards {
+                flex-direction: column;
+                align-items: center;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Hero -->
+    <section class="hero">
+        <div class="hero-badge">Coming Soon</div>
+        <h1>
+            이력서, 또 입력하세요?
+            <span>이력서 한 번 올리면, 어떤 채용 사이트든 자동으로 채워드립니다.</span>
+        </h1>
+        <p>삼성, 현대, 네이버, 쿠팡... 기업마다 자체 채용 사이트에 같은 정보를 또 입력하고 계신가요?</p>
+        <a href="#signup" class="hero-cta">출시 알림 받기</a>
+    </section>
+
+    <!-- Pain Points -->
+    <section class="pain">
+        <h2>이거, 다 겪어보셨죠?</h2>
+        <p class="subtitle">사람인/잡코리아에는 이력서가 있는데, 기업 채용 사이트에서는 또 처음부터...</p>
+        <div class="pain-cards">
+            <div class="pain-card">
+                <div class="emoji">😩</div>
+                <h3>기업마다 다른 양식</h3>
+                <p>삼성은 삼성대로, 현대는 현대대로, LG는 LG대로. 양식이 전부 달라서 복붙도 안 됩니다.</p>
+            </div>
+            <div class="pain-card">
+                <div class="emoji">⏰</div>
+                <h3>기업당 30~60분</h3>
+                <p>학력, 경력, 자격증, 어학, 병역... 10개 기업이면 며칠을 입력에만 씁니다.</p>
+            </div>
+            <div class="pain-card">
+                <div class="emoji">😤</div>
+                <h3>입력하다 지원 포기</h3>
+                <p>너무 귀찮아서 "다음에 해야지" 하다가 채용 공고가 마감됩니다.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- How It Works -->
+    <section class="how">
+        <h2>이렇게 해결합니다</h2>
+        <div class="steps">
+            <div class="step">
+                <div class="step-number">1</div>
+                <h3>이력서 업로드</h3>
+                <p>PDF 이력서를 한 번만 올려주세요.</p>
+            </div>
+            <div class="step">
+                <div class="step-number">2</div>
+                <h3>AI가 자동 분석</h3>
+                <p>AI가 학력, 경력, 자격증 등을 자동으로 파악합니다.</p>
+            </div>
+            <div class="step">
+                <div class="step-number">3</div>
+                <h3>원클릭 자동 입력</h3>
+                <p>기업 채용 사이트에서 버튼 하나로 폼이 채워집니다.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Stats -->
+    <section class="stats">
+        <div class="stats-grid">
+            <div class="stat">
+                <div class="number">40분</div>
+                <div class="label">기업당 평균 입력 시간</div>
+            </div>
+            <div class="stat">
+                <div class="number">3분</div>
+                <div class="label">Fillme 사용 시</div>
+            </div>
+            <div class="stat">
+                <div class="number">93%</div>
+                <div class="label">시간 절약</div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Pricing -->
+    <section class="pricing" id="pricing">
+        <h2>합리적인 가격</h2>
+        <p class="subtitle">공채 시즌, 시간이 곧 기회입니다</p>
+        <div class="pricing-cards">
+            <div class="pricing-card" onclick="trackPricing('free')">
+                <h3>Free</h3>
+                <div class="price">0원</div>
+                <ul>
+                    <li>이력서 파싱 월 3회</li>
+                    <li>자동 입력 월 5회</li>
+                </ul>
+                <button class="select-btn">시작하기</button>
+            </div>
+            <div class="pricing-card popular" onclick="trackPricing('season')">
+                <h3>시즌패스</h3>
+                <div class="price">19,900원 <span>/ 3개월</span></div>
+                <ul>
+                    <li>무제한 이력서 파싱</li>
+                    <li>무제한 자동 입력</li>
+                    <li>모든 기업 사이트 지원</li>
+                </ul>
+                <button class="select-btn">시작하기</button>
+            </div>
+            <div class="pricing-card" onclick="trackPricing('monthly')">
+                <h3>월간</h3>
+                <div class="price">9,900원 <span>/ 월</span></div>
+                <ul>
+                    <li>무제한 이력서 파싱</li>
+                    <li>무제한 자동 입력</li>
+                    <li>모든 기업 사이트 지원</li>
+                </ul>
+                <button class="select-btn">시작하기</button>
+            </div>
+        </div>
+    </section>
+
+    <!-- CTA -->
+    <section class="cta" id="signup">
+        <h2>출시 알림 받기</h2>
+        <p class="subtitle">곧 출시됩니다. 이메일을 남겨주시면 가장 먼저 알려드릴게요.</p>
+        <div class="form-container">
+            <form class="email-form" id="emailForm" onsubmit="handleSubmit(event)">
+                <input type="email" placeholder="이메일 주소를 입력하세요" required id="emailInput">
+                <button type="submit">알림 신청</button>
+            </form>
+            <div class="success-message" id="successMsg">
+                신청 완료! 출시되면 가장 먼저 알려드릴게요.
+            </div>
+            <p class="form-note">스팸 없이, 출시 알림만 보내드립니다.</p>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer>
+        <p>Fillme &copy; 2026. 구직자를 위한 AI 자동 입력 서비스.</p>
+    </footer>
+
+    <script>
+        // Email form submission
+        function handleSubmit(e) {
+            e.preventDefault();
+            const email = document.getElementById('emailInput').value;
+
+            // Google Forms로 전송 (아래 URL을 실제 Google Form URL로 교체 필요)
+            const formData = new FormData();
+            formData.append('entry.EMAIL_FIELD_ID', email);
+
+            // 로컬 스토리지에 저장 (백업)
+            const emails = JSON.parse(localStorage.getItem('fillme_emails') || '[]');
+            emails.push({ email: email, timestamp: new Date().toISOString() });
+            localStorage.setItem('fillme_emails', JSON.stringify(emails));
+
+            // UI 업데이트
+            document.getElementById('emailForm').style.display = 'none';
+            document.getElementById('successMsg').style.display = 'block';
+
+            // 이벤트 추적
+            if (typeof gtag === 'function') {
+                gtag('event', 'signup', { event_category: 'engagement' });
+            }
+        }
+
+        // Pricing click tracking
+        function trackPricing(plan) {
+            // 로컬 스토리지에 저장
+            const clicks = JSON.parse(localStorage.getItem('fillme_pricing') || '[]');
+            clicks.push({ plan: plan, timestamp: new Date().toISOString() });
+            localStorage.setItem('fillme_pricing', JSON.stringify(clicks));
+
+            // 이벤트 추적
+            if (typeof gtag === 'function') {
+                gtag('event', 'pricing_click', { event_category: 'engagement', event_label: plan });
+            }
+
+            // 알림 신청으로 스크롤
+            document.getElementById('signup').scrollIntoView({ behavior: 'smooth' });
+        }
+
+        // Smooth scroll for hero CTA
+        document.querySelector('.hero-cta').addEventListener('click', function(e) {
+            e.preventDefault();
+            document.getElementById('signup').scrollIntoView({ behavior: 'smooth' });
+        });
+    </script>
+
+</body>
+</html>
