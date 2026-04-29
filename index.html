@@ -314,7 +314,7 @@
         .pricing-cards {
             display: flex;
             gap: 1.5rem;
-            max-width: 800px;
+            max-width: 1050px;
             margin: 0 auto;
             flex-wrap: wrap;
             justify-content: center;
@@ -324,10 +324,10 @@
             background: white;
             border: 2px solid #e0e0e0;
             border-radius: 16px;
-            padding: 2rem;
+            padding: 1.5rem;
             flex: 1;
-            min-width: 220px;
-            max-width: 250px;
+            min-width: 200px;
+            max-width: 240px;
             cursor: pointer;
             transition: transform 0.2s, border-color 0.2s;
         }
@@ -602,8 +602,17 @@
                 <h3>Free</h3>
                 <div class="price">0원</div>
                 <ul>
-                    <li>이력서 파싱 월 3회</li>
-                    <li>자동 입력 월 5회</li>
+                    <li>자동 지원 1회 체험</li>
+                    <li>서비스 미리 경험해보세요</li>
+                </ul>
+                <button class="select-btn">체험하기</button>
+            </div>
+            <div class="pricing-card" onclick="trackPricing('per_use')">
+                <h3>건당</h3>
+                <div class="price">2,000원 <span>/ 1회</span></div>
+                <ul>
+                    <li>자동 지원 1회</li>
+                    <li>필요할 때만 결제</li>
                 </ul>
                 <button class="select-btn">시작하기</button>
             </div>
@@ -611,8 +620,8 @@
                 <h3>시즌패스</h3>
                 <div class="price">19,900원 <span>/ 3개월</span></div>
                 <ul>
-                    <li>무제한 이력서 파싱</li>
-                    <li>무제한 자동 입력</li>
+                    <li>자동 지원 월 30회</li>
+                    <li>AI 포지션 추천</li>
                     <li>모든 기업 사이트 지원</li>
                 </ul>
                 <button class="select-btn">시작하기</button>
@@ -621,8 +630,8 @@
                 <h3>월간</h3>
                 <div class="price">9,900원 <span>/ 월</span></div>
                 <ul>
-                    <li>무제한 이력서 파싱</li>
-                    <li>무제한 자동 입력</li>
+                    <li>자동 지원 월 30회</li>
+                    <li>AI 포지션 추천</li>
                     <li>모든 기업 사이트 지원</li>
                 </ul>
                 <button class="select-btn">시작하기</button>
