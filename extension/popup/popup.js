@@ -206,108 +206,133 @@ function showUploadSuccess(count) {
 // Parse resume text into structured fields
 function parseResumeText(text) {
   var result = {};
-  var fullText = text.replace(/\s+/g, ' ');
+  // fullText: 공백 정규화 (줄바꿈 유지)
+  var lines = text.split(/\n/).map(function(l) { return l.trim(); });
+  var fullText = text.replace(/[ \t]+/g, ' ');
+  var flatText = text.replace(/\s+/g, ' ');
 
-  // 이메일 (가장 확실한 패턴)
-  var emailMatch = fullText.match(/[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/);
-  if (emailMatch) result.email = emailMatch[0];
-
-  // 전화번호
-  var phoneMatch = fullText.match(/01[0-9][\-\s\.]*\d{3,4}[\-\s\.]*\d{4}/);
-  if (phoneMatch) result.phone = phoneMatch[0].replace(/[\s\.]/g, '').replace(/(\d{3})(\d{3,4})(\d{4})/, '$1-$2-$3');
-
-  // 이름 - "성명: 홍길동" 또는 "이름: 홍길동" 패턴
-  var nameMatch = fullText.match(/(?:성명|이름|지원자|성 명)\s*[:\-\|]?\s*([가-힣]{2,4})/);
+  // === 이름 ===
+  // "성    명" + 다음에 나오는 한글 2~4자
+  var nameMatch = flatText.match(/(?:성\s*명|이름|지원자명?)\s*[:\-\|]?\s*([가-힣]{2,4})/);
   if (nameMatch) result.name = nameMatch[1];
 
-  // 영문 이름
-  var enNameMatch = fullText.match(/(?:영문|english|영문명|영문이름|영문 성명)\s*[:\-\|]?\s*([A-Za-z][\sA-Za-z\-]{2,30})/i);
-  if (enNameMatch) result.nameEn = enNameMatch[1].trim();
+  // === 이메일 ===
+  var emailMatch = flatText.match(/[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/);
+  if (emailMatch) result.email = emailMatch[0];
 
-  // 주소
-  var addrMatch = fullText.match(/(?:주소|거주지|현주소|자택)\s*[:\-\|]?\s*([가-힣0-9\s\-\(\)]{5,50})/);
+  // === 전화번호 ===
+  var phoneMatch = flatText.match(/01[0-9][\-\s\.]*\d{3,4}[\-\s\.]*\d{4}/);
+  if (phoneMatch) {
+    var raw = phoneMatch[0].replace(/[\s\.]/g, '').replace(/-/g, '');
+    result.phone = raw.replace(/(\d{3})(\d{4})(\d{4})/, '$1-$2-$3');
+  }
+
+  // === 주소 ===
+  // "주    소" 패턴 또는 시/도로 시작
+  var addrMatch = flatText.match(/(?:주\s*소|거주지|현주소)\s*[:\-\|]?\s*([가-힣0-9\s\-\(\),\.·]{5,60})/);
   if (addrMatch) result.address = addrMatch[1].trim();
   if (!addrMatch) {
-    // 시/도로 시작하는 주소 패턴
-    addrMatch = fullText.match(/(서울|부산|대구|인천|광주|대전|울산|세종|경기|강원|충북|충남|전북|전남|경북|경남|제주)[가-힣0-9\s\-\(\)]{5,40}/);
+    addrMatch = flatText.match(/(서울|부산|대구|인천|광주|대전|울산|세종|경기|강원|충북|충남|전북|전남|경북|경남|제주)[가-힣0-9\s\-\(\),\.·]{5,50}/);
     if (addrMatch) result.address = addrMatch[0].trim();
   }
 
-  // 생년월일
-  var birthMatch = fullText.match(/(?:생년월일|생년|출생|생일)\s*[:\-\|]?\s*(\d{4}[\.\-\/\s]\s?\d{1,2}[\.\-\/\s]\s?\d{1,2})/);
-  if (birthMatch) result.birth = birthMatch[1].replace(/[\.\s\/]/g, '-').replace(/--/g, '-');
+  // === 생년월일 ===
+  var birthMatch = flatText.match(/(?:생년월일|생\s*년\s*월\s*일)\s*[:\-\|]?\s*(\d{4})\s*년?\s*(\d{1,2})\s*월?\s*(\d{1,2})\s*일/);
+  if (birthMatch) {
+    result.birth = birthMatch[1] + '-' + birthMatch[2].padStart(2,'0') + '-' + birthMatch[3].padStart(2,'0');
+  }
   if (!birthMatch) {
-    birthMatch = fullText.match(/(\d{4})\s*년\s*(\d{1,2})\s*월\s*(\d{1,2})\s*일/);
-    if (birthMatch) result.birth = birthMatch[1] + '-' + birthMatch[2].padStart(2,'0') + '-' + birthMatch[3].padStart(2,'0');
+    birthMatch = flatText.match(/(?:생년월일|생\s*년\s*월\s*일)\s*[:\-\|]?\s*(\d{4}[\.\-\/]\s?\d{1,2}[\.\-\/]\s?\d{1,2})/);
+    if (birthMatch) result.birth = birthMatch[1].replace(/[\.\s\/]/g, '-');
   }
 
-  // 학교
-  var schoolMatch = fullText.match(/([가-힣]+(?:대학교|대학|고등학교))/);
-  if (schoolMatch) result.school = schoolMatch[1];
-
-  // 전공
-  var majorMatch = fullText.match(/([가-힣]+(?:학과|학부|공학과|공학부))/);
-  if (majorMatch) result.major = majorMatch[1];
-  if (!majorMatch) {
-    majorMatch = fullText.match(/(?:전공|학과)\s*[:\-\|]?\s*([가-힣]{2,15})/);
+  // === 학력 ===
+  // "수원대학교 정보미디어학과 졸업" 형태
+  var eduMatch = flatText.match(/([가-힣]+대학교)\s+([가-힣]+(?:학과|학부))\s+졸업/);
+  if (eduMatch) {
+    result.school = eduMatch[1];
+    result.major = eduMatch[2];
+  }
+  if (!result.school) {
+    var schoolMatch = flatText.match(/([가-힣]+대학교)/);
+    if (schoolMatch) result.school = schoolMatch[1];
+  }
+  if (!result.major) {
+    var majorMatch = flatText.match(/([가-힣]+(?:학과|학부))/);
     if (majorMatch) result.major = majorMatch[1];
   }
 
+  // 학력 기간: "2014.03 ~ 2018.02" 패턴 (대학교 근처)
+  var eduPeriod = flatText.match(/(\d{4})\.(\d{2})\s*~\s*(\d{4})\.(\d{2})\s+[가-힣]+대학교/);
+  if (eduPeriod) {
+    result.schoolStart = eduPeriod[1] + '-' + eduPeriod[2];
+    result.schoolEnd = eduPeriod[3] + '-' + eduPeriod[4];
+  }
+
   // 학점
-  var gpaMatch = fullText.match(/(\d\.\d{1,2})\s*[\/\|]\s*(\d\.\d{1,2})/);
+  var gpaMatch = flatText.match(/(\d\.\d{1,2})\s*[\/\|]\s*(\d\.\d{1,2})/);
   if (gpaMatch) result.gpa = gpaMatch[0].replace('|', '/');
 
-  // 졸업년도
-  var gradMatch = fullText.match(/(\d{4})\s*[\.\-\/]\s*(\d{1,2})\s*(?:졸업|졸|수료)/);
-  if (gradMatch) result.schoolEnd = gradMatch[1] + '-' + gradMatch[2].padStart(2,'0');
-
-  // 입학년도
-  var entrMatch = fullText.match(/(\d{4})\s*[\.\-\/]\s*(\d{1,2})\s*(?:입학|입)/);
-  if (entrMatch) result.schoolStart = entrMatch[1] + '-' + entrMatch[2].padStart(2,'0');
-
-  // 회사명
-  var companyPatterns = [
-    /(?:회사명?|직장|근무처|근무 회사)\s*[:\-\|]?\s*(?:주식회사|㈜|\(주\))?\s*([가-힣a-zA-Z\s]{2,20})/,
-    /(?:주식회사|㈜|\(주\))\s*([가-힣a-zA-Z]{2,15})/
-  ];
-  for (var i = 0; i < companyPatterns.length; i++) {
-    var cm = fullText.match(companyPatterns[i]);
-    if (cm) { result.company = cm[1].trim(); break; }
+  // === 경력 (가장 최근) ===
+  // "2024.08 ~ 재직중  F&F / 웹플랫폼팀 / 대리" 형태
+  var careerMatch = flatText.match(/\d{4}\.\d{2}\s*~\s*(?:재직중|현재|재직)\s+([가-힣a-zA-Z&]+)\s*\/\s*([가-힣a-zA-Z]+(?:팀|부|실|파트))\s*\/\s*([가-힣]+)/);
+  if (careerMatch) {
+    result.company = careerMatch[1].trim();
+    result.position = careerMatch[3].trim(); // 직책 (대리, 사원 등)
+  }
+  if (!result.company) {
+    // "㈜무신사" 또는 "회사명" 패턴
+    var compMatch = flatText.match(/(?:㈜|\(주\)|주식회사)\s*([가-힣a-zA-Z&]{2,15})/);
+    if (compMatch) result.company = compMatch[1].trim();
   }
 
-  // 직무/직책
-  var posMatch = fullText.match(/(?:직무|직책|직위|포지션|담당업무)\s*[:\-\|]?\s*([가-힣a-zA-Z\s]{2,20})/);
-  if (posMatch) result.position = posMatch[1].trim();
-
-  // 자격증
-  var certMatch = fullText.match(/(?:자격증|자격|면허|자격 사항)\s*[:\-\|]?\s*([^\n]{3,50})/);
-  if (certMatch) result.certs = certMatch[1].trim();
-  if (!certMatch) {
-    // 유명 자격증 이름 직접 매칭
-    var certNames = fullText.match(/(정보처리기사|컴퓨터활용능력|한국사능력검정|SQLD|ADsP|빅데이터분석기사|공인회계사|세무사|변호사|감정평가사|공인중개사|전기기사|건축기사|토목기사|사회복지사)/g);
-    if (certNames) result.certs = certNames.join(', ');
+  // 경력 기간 (가장 최근)
+  var workPeriod = flatText.match(/(\d{4})\.(\d{2})\s*~\s*(?:재직중|현재|재직)/);
+  if (workPeriod) {
+    result.workStart = workPeriod[1] + '-' + workPeriod[2];
+    result.workEnd = '재직중';
   }
 
-  // 어학
-  var langMatch = fullText.match(/(TOEIC|TOEFL|OPIC|TEPS|토익|토플|오픽|텝스|IELTS|HSK|JLPT|JPT)/i);
+  // === 자격증 ===
+  // "자격사항" 섹션 아래의 내용들
+  var certSection = flatText.match(/자격사항\s+([\s\S]{10,200}?)(?=교육사항|병역사항|어학|기타|$)/);
+  if (certSection) {
+    var certText = certSection[1];
+    var certs = certText.match(/([가-힣a-zA-Z]+(?:기사|관리사|자격|기술자격|능력검정)[가-힣0-9\s]*\d*급?)/g);
+    if (certs) result.certs = certs.map(function(c) { return c.trim(); }).join(', ');
+  }
+  if (!result.certs) {
+    // 직접 매칭
+    var certNames = flatText.match(/(유통관리사[가-힣0-9\s]*\d*급?|그래픽기술자격[가-힣0-9\s]*\d*급?|텔레마케팅관리사|정보처리기사|컴퓨터활용능력[가-힣0-9\s]*\d*급?|한국사능력검정[가-힣0-9\s]*\d*급?|SQLD|ADsP|빅데이터분석기사|공인회계사|세무사|공인중개사|사회복지사)/g);
+    if (certNames) result.certs = certNames.map(function(c) { return c.trim(); }).join(', ');
+  }
+
+  // === 어학 ===
+  var langMatch = flatText.match(/(TOEIC|TOEFL|OPIC|TEPS|토익|토플|오픽|텝스|IELTS|HSK|JLPT|JPT)/i);
   if (langMatch) {
     result.langTest = langMatch[1].toUpperCase()
       .replace('토익', 'TOEIC').replace('토플', 'TOEFL')
       .replace('오픽', 'OPIC').replace('텝스', 'TEPS');
   }
-
-  var scoreMatch = fullText.match(/(?:TOEIC|TOEFL|OPIC|TEPS|토익|토플|오픽|텝스|IELTS|HSK|JLPT|JPT)\s*[:\-\|]?\s*(\d{2,4}점?|[A-Z]{1,3}\d?|Level\s?\d|N\d)/i);
+  var scoreMatch = flatText.match(/(?:TOEIC|TOEFL|OPIC|TEPS|토익|토플|오픽|텝스|IELTS|HSK|JLPT|JPT)\s*[:\-\|]?\s*(\d{2,4}점?|[A-Z]{1,3}\d?|Level\s?\d|N\d)/i);
   if (scoreMatch) result.langScore = scoreMatch[1].replace('점','');
 
-  // 병역
-  if (/군필|만기전역|병장|상병|일병|이병|전역/.test(fullText)) {
-    if (/해군/.test(fullText)) result.military = 'done_navy';
-    else if (/공군/.test(fullText)) result.military = 'done_air';
-    else if (/해병/.test(fullText)) result.military = 'done_marine';
-    else result.military = 'done';
-  } else if (/면제|비대상|의병제/.test(fullText)) {
+  // === 병역 ===
+  if (/해병.*전역|해병만기전역/.test(flatText)) {
+    result.military = 'done_marine';
+  } else if (/해군.*전역/.test(flatText)) {
+    result.military = 'done_navy';
+  } else if (/공군.*전역/.test(flatText)) {
+    result.military = 'done_air';
+  } else if (/군필|만기전역|병장|상병|전역/.test(flatText)) {
+    result.military = 'done';
+  } else if (/면제|비대상/.test(flatText)) {
     result.military = 'exempt';
   }
+
+  // === 성별 ===
+  if (/남성|male/i.test(flatText)) result.gender = 'male';
+  else if (/여성|female/i.test(flatText)) result.gender = 'female';
 
   return result;
 }
