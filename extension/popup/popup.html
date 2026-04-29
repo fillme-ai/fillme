@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      width: 380px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Noto Sans KR', sans-serif;
+      color: #1a1a2e;
+      background: #fff;
+    }
+    .header {
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      color: white;
+      padding: 1rem;
+      text-align: center;
+    }
+    .header h1 { font-size: 1.2rem; font-weight: 700; }
+    .header p { font-size: 0.8rem; opacity: 0.9; margin-top: 0.3rem; }
+
+    .tabs {
+      display: flex;
+      border-bottom: 2px solid #eee;
+    }
+    .tab {
+      flex: 1;
+      padding: 0.7rem;
+      text-align: center;
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      color: #999;
+      border-bottom: 2px solid transparent;
+      margin-bottom: -2px;
+    }
+    .tab.active {
+      color: #667eea;
+      border-bottom-color: #667eea;
+    }
+
+    .tab-content { display: none; padding: 1rem; max-height: 450px; overflow-y: auto; }
+    .tab-content.active { display: block; }
+
+    .section-title {
+      font-size: 0.85rem;
+      font-weight: 700;
+      color: #667eea;
+      margin: 1rem 0 0.5rem;
+      padding-bottom: 0.3rem;
+      border-bottom: 1px solid #eee;
+    }
+    .section-title:first-child { margin-top: 0; }
+
+    .field { margin-bottom: 0.6rem; }
+    .field label {
+      display: block;
+      font-size: 0.75rem;
+      color: #666;
+      margin-bottom: 0.2rem;
+    }
+    .field input, .field select, .field textarea {
+      width: 100%;
+      padding: 0.5rem;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      font-size: 0.85rem;
+      outline: none;
+      font-family: inherit;
+    }
+    .field input:focus, .field select:focus, .field textarea:focus {
+      border-color: #667eea;
+    }
+    .field textarea { resize: vertical; min-height: 60px; }
+
+    .row { display: flex; gap: 0.5rem; }
+    .row .field { flex: 1; }
+
+    .btn {
+      width: 100%;
+      padding: 0.7rem;
+      border: none;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+      margin-top: 0.8rem;
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      color: white;
+    }
+    .btn-fill {
+      background: #2e7d32;
+      color: white;
+      font-size: 1rem;
+      padding: 0.9rem;
+    }
+    .btn:hover { opacity: 0.9; }
+
+    .status {
+      text-align: center;
+      padding: 0.5rem;
+      font-size: 0.85rem;
+      font-weight: 600;
+      display: none;
+    }
+    .status.success { display: block; color: #2e7d32; background: #e8f5e9; border-radius: 8px; margin-top: 0.5rem; }
+    .status.error { display: block; color: #e53935; background: #ffebee; border-radius: 8px; margin-top: 0.5rem; }
+
+    .fill-section {
+      padding: 1rem;
+      text-align: center;
+    }
+    .fill-section p {
+      font-size: 0.85rem;
+      color: #666;
+      margin-bottom: 1rem;
+    }
+    .detected-count {
+      font-size: 2rem;
+      font-weight: 800;
+      color: #667eea;
+    }
+    .detected-label {
+      font-size: 0.85rem;
+      color: #999;
+      margin-bottom: 1rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>Fillme</h1>
+    <p>이력서 한 번이면, 지원 끝.</p>
+  </div>
+
+  <div class="tabs">
+    <div class="tab active" data-tab="fill">자동 입력</div>
+    <div class="tab" data-tab="profile">내 이력서</div>
+  </div>
+
+  <!-- 자동 입력 탭 -->
+  <div class="tab-content active" id="tab-fill">
+    <div class="fill-section">
+      <div class="detected-count" id="fieldCount">-</div>
+      <div class="detected-label">입력 가능한 필드 감지됨</div>
+      <p>현재 페이지에서 감지된 입력 필드에<br>저장된 이력서 정보를 자동으로 채웁니다.</p>
+      <button class="btn btn-fill" id="btnFill">⚡ 자동 입력 시작</button>
+      <div class="status" id="fillStatus"></div>
+    </div>
+  </div>
+
+  <!-- 내 이력서 탭 -->
+  <div class="tab-content" id="tab-profile">
+    <div class="section-title">기본 정보</div>
+    <div class="row">
+      <div class="field">
+        <label>이름</label>
+        <input type="text" id="name" placeholder="홍길동">
+      </div>
+      <div class="field">
+        <label>영문 이름</label>
+        <input type="text" id="nameEn" placeholder="Gil-dong Hong">
+      </div>
+    </div>
+    <div class="row">
+      <div class="field">
+        <label>이메일</label>
+        <input type="email" id="email" placeholder="hong@email.com">
+      </div>
+      <div class="field">
+        <label>연락처</label>
+        <input type="tel" id="phone" placeholder="010-1234-5678">
+      </div>
+    </div>
+    <div class="field">
+      <label>주소</label>
+      <input type="text" id="address" placeholder="서울시 강남구">
+    </div>
+    <div class="row">
+      <div class="field">
+        <label>생년월일</label>
+        <input type="text" id="birth" placeholder="1995-01-15">
+      </div>
+      <div class="field">
+        <label>성별</label>
+        <select id="gender">
+          <option value="">선택</option>
+          <option value="male">남성</option>
+          <option value="female">여성</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="section-title">학력</div>
+    <div class="field">
+      <label>학교명</label>
+      <input type="text" id="school" placeholder="한국대학교">
+    </div>
+    <div class="row">
+      <div class="field">
+        <label>전공</label>
+        <input type="text" id="major" placeholder="경영학과">
+      </div>
+      <div class="field">
+        <label>학점</label>
+        <input type="text" id="gpa" placeholder="3.8 / 4.5">
+      </div>
+    </div>
+    <div class="row">
+      <div class="field">
+        <label>입학년도</label>
+        <input type="text" id="schoolStart" placeholder="2014-03">
+      </div>
+      <div class="field">
+        <label>졸업년도</label>
+        <input type="text" id="schoolEnd" placeholder="2018-02">
+      </div>
+    </div>
+    <div class="field">
+      <label>학력 구분</label>
+      <select id="degree">
+        <option value="">선택</option>
+        <option value="high">고등학교</option>
+        <option value="college">전문대 (2/3년제)</option>
+        <option value="university">대학교 (4년제)</option>
+        <option value="master">대학원 (석사)</option>
+        <option value="phd">대학원 (박사)</option>
+      </select>
+    </div>
+
+    <div class="section-title">경력</div>
+    <div class="field">
+      <label>회사명</label>
+      <input type="text" id="company" placeholder="(주)테크스타">
+    </div>
+    <div class="row">
+      <div class="field">
+        <label>직무/직책</label>
+        <input type="text" id="position" placeholder="마케팅팀 대리">
+      </div>
+    </div>
+    <div class="row">
+      <div class="field">
+        <label>입사일</label>
+        <input type="text" id="workStart" placeholder="2018-03">
+      </div>
+      <div class="field">
+        <label>퇴사일</label>
+        <input type="text" id="workEnd" placeholder="2020-06">
+      </div>
+    </div>
+    <div class="field">
+      <label>담당 업무</label>
+      <textarea id="workDesc" placeholder="주요 업무 내용을 입력하세요"></textarea>
+    </div>
+
+    <div class="section-title">자격/어학/병역</div>
+    <div class="field">
+      <label>자격증</label>
+      <input type="text" id="certs" placeholder="정보처리기사, SQLD">
+    </div>
+    <div class="row">
+      <div class="field">
+        <label>어학 시험</label>
+        <input type="text" id="langTest" placeholder="TOEIC">
+      </div>
+      <div class="field">
+        <label>점수</label>
+        <input type="text" id="langScore" placeholder="880">
+      </div>
+    </div>
+    <div class="field">
+      <label>병역 사항</label>
+      <select id="military">
+        <option value="">선택</option>
+        <option value="done">군필 (육군)</option>
+        <option value="done_navy">군필 (해군)</option>
+        <option value="done_air">군필 (공군)</option>
+        <option value="done_marine">군필 (해병대)</option>
+        <option value="exempt">면제</option>
+        <option value="serving">복무 중</option>
+        <option value="na">해당 없음</option>
+      </select>
+    </div>
+
+    <button class="btn btn-primary" id="btnSave">💾 이력서 저장</button>
+    <div class="status" id="saveStatus"></div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
