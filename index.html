@@ -696,6 +696,12 @@
 
         var selectedPlan = '';
 
+        // UTM 소스 가져오기
+        function getUtmSource() {
+            var params = new URLSearchParams(window.location.search);
+            return params.get('utm_source') || 'direct';
+        }
+
         // Email form submission
         function handleSubmit(e) {
             e.preventDefault();
@@ -704,12 +710,12 @@
             btn.textContent = '전송 중...';
             btn.disabled = true;
 
-            // Google Apps Script로 전송 (이메일 + 선택한 플랜)
+            // Google Apps Script로 전송 (이메일 + 플랜 + 유입 경로)
             fetch(SCRIPT_URL, {
                 method: 'POST',
                 mode: 'no-cors',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email: email, plan: selectedPlan })
+                body: JSON.stringify({ email: email, plan: selectedPlan, source: getUtmSource() })
             }).then(function() {
                 document.getElementById('emailForm').style.display = 'none';
                 document.getElementById('successMsg').style.display = 'block';
