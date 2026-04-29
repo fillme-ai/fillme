@@ -225,14 +225,18 @@
     <div class="divider">또는 직접 입력</div>
 
     <div class="section-title">기본 정보</div>
+    <div class="field">
+      <label>이름</label>
+      <input type="text" id="name" placeholder="홍길동">
+    </div>
     <div class="row">
       <div class="field">
-        <label>이름</label>
-        <input type="text" id="name" placeholder="홍길동">
+        <label>영문 이름 (First)</label>
+        <input type="text" id="nameEnFirst" placeholder="Gil-dong">
       </div>
       <div class="field">
-        <label>영문 이름</label>
-        <input type="text" id="nameEn" placeholder="Gil-dong Hong">
+        <label>영문 성 (Last)</label>
+        <input type="text" id="nameEnLast" placeholder="Hong">
       </div>
     </div>
     <div class="row">
@@ -353,6 +357,32 @@
         <option value="exempt">면제</option>
         <option value="serving">복무 중</option>
         <option value="na">해당 없음</option>
+      </select>
+    </div>
+
+    <div class="section-title">추가 정보</div>
+    <div class="row">
+      <div class="field">
+        <label>희망연봉 (만원)</label>
+        <input type="text" id="salaryDesired" placeholder="4000">
+      </div>
+      <div class="field">
+        <label>직전연봉 (만원)</label>
+        <input type="text" id="salaryPrev" placeholder="3500">
+      </div>
+    </div>
+    <div class="field">
+      <label>보훈 대상</label>
+      <select id="veteran">
+        <option value="no">비대상</option>
+        <option value="yes">대상</option>
+      </select>
+    </div>
+    <div class="field">
+      <label>장애 정보</label>
+      <select id="disability">
+        <option value="no">비대상</option>
+        <option value="yes">대상</option>
       </select>
     </div>
 

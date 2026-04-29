@@ -1,9 +1,10 @@
 // Profile fields to save/load
 var PROFILE_FIELDS = [
-  'name', 'nameEn', 'email', 'phone', 'address', 'birth', 'gender',
+  'name', 'nameEnFirst', 'nameEnLast', 'email', 'phone', 'address', 'birth', 'gender',
   'school', 'major', 'gpa', 'schoolStart', 'schoolEnd', 'degree',
   'company', 'position', 'workStart', 'workEnd', 'workDesc',
-  'certs', 'langTest', 'langScore', 'military'
+  'certs', 'langTest', 'langScore', 'military',
+  'salaryDesired', 'salaryPrev', 'veteran', 'disability'
 ];
 
 // ===== Tab switching =====
