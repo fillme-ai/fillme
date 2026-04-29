@@ -167,10 +167,11 @@ function parsePDF(file) {
           var allText = texts.join('\n');
           console.log('Extracted text:', allText);
           var parsed = parseResumeText(allText);
+          console.log('Extracted text:', allText.substring(0, 500));
           console.log('Parsed result:', parsed);
           fillProfileFields(parsed);
           showParsing(false);
-          showUploadSuccess(Object.keys(parsed).length);
+          showUploadSuccess(Object.keys(parsed).length, parsed);
         });
       }).catch(function(err) {
         console.error('PDF parse error:', err);
@@ -193,13 +194,33 @@ function showParsing(show) {
   if (uz) uz.style.display = show ? 'none' : 'block';
 }
 
-function showUploadSuccess(count) {
+function showUploadSuccess(count, parsed) {
   var zone = document.getElementById('uploadZone');
   if (zone) {
     zone.innerHTML = '<div class="icon">✅</div><div class="text"><strong>' + (count || 0) + '개 항목 분석 완료!</strong><br>아래에서 확인하고 저장하세요</div>';
     zone.style.borderColor = '#66bb6a';
     zone.style.background = '#e8f5e9';
     zone.style.cursor = 'default';
+  }
+  // 분석 결과 표시
+  var resultDiv = document.getElementById('parseResult');
+  var listDiv = document.getElementById('parseResultList');
+  if (resultDiv && listDiv && parsed) {
+    var fieldNames = {
+      name: '이름', nameEnFirst: '영문이름', nameEnLast: '영문성',
+      email: '이메일', phone: '연락처', address: '주소', birth: '생년월일',
+      gender: '성별', school: '학교', major: '전공', gpa: '학점',
+      schoolStart: '입학', schoolEnd: '졸업', company: '회사', position: '직책',
+      workStart: '입사일', workEnd: '퇴사일', certs: '자격증',
+      langTest: '어학시험', langScore: '어학점수', military: '병역'
+    };
+    var html = '';
+    for (var key in parsed) {
+      html += '<div style="margin-bottom:0.3rem;"><strong>' + (fieldNames[key] || key) + ':</strong> ' + parsed[key] + '</div>';
+    }
+    if (!html) html = '<div style="color:#e53935;">분석된 항목이 없습니다. PDF 형식을 확인해주세요.</div>';
+    listDiv.innerHTML = html;
+    resultDiv.style.display = 'block';
   }
 }
 
