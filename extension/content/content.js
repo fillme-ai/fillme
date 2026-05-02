@@ -176,9 +176,9 @@ function matchField(labelTexts, input) {
   return null;
 }
 
-// Get all fillable inputs
+// Get all fillable inputs (including custom dropdowns)
 function getInputs() {
-  return Array.from(document.querySelectorAll(
+  var inputs = Array.from(document.querySelectorAll(
     'input[type="text"], input[type="email"], input[type="tel"], input[type="number"], ' +
     'input[type="date"], input[type="url"], input:not([type]), ' +
     'textarea, select'
@@ -191,6 +191,17 @@ function getInputs() {
                        el.type !== 'checkbox' && el.type !== 'radio';
     return isVisible && isEditable && isNotSpecial;
   });
+
+  // 커스텀 드롭다운도 추가 (ninehire 등 React 기반 셀렉트)
+  document.querySelectorAll('[class*="select"], [class*="Select"], [role="combobox"], [role="listbox"]').forEach(function(el) {
+    var rect = el.getBoundingClientRect();
+    if (rect.width > 30 && rect.height > 20 && !inputs.includes(el)) {
+      el._isCustomSelect = true;
+      inputs.push(el);
+    }
+  });
+
+  return inputs;
 }
 
 // Set value — React/Vue/Angular compatible
@@ -246,6 +257,46 @@ function setValue(input, value) {
   input.dispatchEvent(new Event('input', { bubbles: true }));
 
   return true;
+}
+
+// Handle custom select/dropdown components
+function handleCustomSelect(el, value) {
+  if (!value) return false;
+  var val = value.toLowerCase();
+
+  // 보훈/장애 기본값 매핑
+  if (val === 'no') val = '비대상';
+  if (val === 'yes') val = '대상';
+
+  try {
+    // 1. 클릭해서 드롭다운 열기
+    el.click();
+
+    // 2. 약간의 딜레이 후 옵션 찾기
+    setTimeout(function() {
+      // 열린 드롭다운에서 옵션 찾기
+      var options = document.querySelectorAll('[class*="option"], [class*="Option"], [role="option"], li');
+      var found = false;
+      options.forEach(function(opt) {
+        var optText = opt.textContent.trim().toLowerCase();
+        if (optText.includes(val) || val.includes(optText)) {
+          opt.click();
+          found = true;
+          console.log('Fillme custom select clicked:', opt.textContent.trim());
+        }
+      });
+
+      // 못 찾으면 드롭다운 닫기
+      if (!found) {
+        document.body.click();
+      }
+    }, 300);
+
+    return true;
+  } catch(e) {
+    console.log('Custom select error:', e);
+    return false;
+  }
 }
 
 // Highlight filled field
@@ -350,7 +401,13 @@ chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
 
       if (!profile[fieldKey]) return;
 
-      var success = setValue(input, profile[fieldKey]);
+      var success = false;
+      if (input._isCustomSelect) {
+        // 커스텀 드롭다운: 클릭 → 옵션 선택
+        success = handleCustomSelect(input, profile[fieldKey]);
+      } else {
+        success = setValue(input, profile[fieldKey]);
+      }
       if (success) {
         highlightField(input);
         matched[fieldKey] = true;
