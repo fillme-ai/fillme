@@ -355,16 +355,22 @@ function parsePDF(file) {
           var allText = texts.join('\n');
           console.log('Extracted text:', allText.substring(0, 500));
 
-          // AI 파싱 시도, 실패 시 로컬 파싱 폴백
+          // 원문 텍스트 저장 (디버그용)
+          var rawDiv = document.getElementById('rawText');
+          if (rawDiv) rawDiv.textContent = allText.substring(0, 1000);
+
+          // AI 파싱 시도
           parseWithGemini(allText).then(function(aiResult) {
             var profile, displayResult;
             if (aiResult) {
               profile = geminiToProfile(aiResult);
               displayResult = profile;
+              displayResult._source = 'Gemini AI';
               console.log('AI parsed:', aiResult);
             } else {
               profile = parseResumeText(allText);
               displayResult = profile;
+              displayResult._source = '로컬 파싱 (AI 실패)';
               console.log('Fallback local parse:', profile);
             }
             fillProfileFields(profile);
@@ -373,6 +379,16 @@ function parsePDF(file) {
               return profile[k] && !k.startsWith('_');
             }).length;
             showUploadSuccess(count, displayResult);
+
+            // 자동 저장
+            var saveProfile = {};
+            PROFILE_FIELDS.forEach(function(field) {
+              var el = document.getElementById(field);
+              if (el) saveProfile[field] = el.value;
+            });
+            chrome.storage.local.set({ profile: saveProfile }, function() {
+              console.log('Profile auto-saved after PDF parse');
+            });
           });
         });
       }).catch(function(err) {
