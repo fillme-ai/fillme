@@ -766,12 +766,53 @@ function parseResumeText(text) {
     result.workEnd = result._allCareers[0].end;
   }
 
-  // === 자격증 (다중) ===
+  // === 자격증 (다중) — "자격사항" 또는 "기타사항" 섹션에서 파싱 ===
   result._allCerts = [];
-  var certNames = flatText.match(/(유통관리사\s*\d*급?|그래픽기술자격\s*\d*급?|텔레마케팅관리사|정보처리기사|컴퓨터활용능력\s*\d*급?|한국사능력검정\s*\d*급?|SQLD|ADsP|빅데이터분석기사|공인회계사|세무사|공인중개사|사회복지사|전기기사|건축기사)/g);
-  if (certNames) {
-    result._allCerts = certNames.map(function(c) { return c.trim(); });
+  var certSections = flatText.split(/자격사항|기타사항/);
+  var certText = certSections.length > 1 ? certSections[certSections.length - 1] : flatText;
+  certText = certText.split(/교육사항|병역사항/)[0];
+  // 자격증 이름 + 급수 + 연도 패턴
+  var certRegex = /([가-힣a-zA-Z]+(?:기사|관리사|자격|기술자격|능력검정|회계사|세무사|중개사|복지사)[가-힣]*)\s*(\d*급?)\s*(?:\(\d{4}\))?/g;
+  var certM;
+  while ((certM = certRegex.exec(certText)) !== null) {
+    var certName = certM[1].trim() + (certM[2] ? ' ' + certM[2] : '');
+    if (!result._allCerts.includes(certName.trim())) {
+      result._allCerts.push(certName.trim());
+    }
+  }
+  if (result._allCerts.length > 0) {
     result.certs = result._allCerts.join(', ');
+  }
+
+  // === 경력별 주요 업무 추출 ===
+  // "상세경력사항" 이후에서 각 경력의 프로젝트 제목 추출
+  var detailSections = flatText.split(/상세경력사항/);
+  if (detailSections.length > 1 && result._allCareers.length > 0) {
+    var detailText = detailSections[1];
+    result._allCareers.forEach(function(career) {
+      // 해당 기간으로 시작하는 섹션 찾기
+      var startDate = career.start.replace('-', '.');
+      var idx = detailText.indexOf(startDate);
+      if (idx >= 0) {
+        var section = detailText.substring(idx);
+        // 다음 경력 시작 전까지 잘라내기
+        var nextCareer = section.match(/\n\d{4}\.\d{2}\s*~/);
+        if (nextCareer) section = section.substring(0, nextCareer.index);
+        // 프로젝트 제목 추출 (숫자. 제목 패턴)
+        var projects = [];
+        var projRegex = /\d+\.\s*([^\n✓▸\[]{3,50})/g;
+        var projM;
+        while ((projM = projRegex.exec(section)) !== null) {
+          var title = projM[1].trim();
+          if (!/주요\s*업무|성과/.test(title)) {
+            projects.push(title);
+          }
+        }
+        if (projects.length > 0) {
+          career.description = projects.join(', ');
+        }
+      }
+    });
   }
 
   // === 어학 ===
