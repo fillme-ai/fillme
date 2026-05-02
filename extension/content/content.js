@@ -23,7 +23,7 @@ var FIELD_MAP = [
   { keywords: ['어학', '외국어', '토익', 'toeic'], field: 'langTest' },
   { keywords: ['점수', 'score'], field: 'langScore' },
   // 경력 기간
-  { keywords: ['유관 경력', '경력 기간', '경력기간', '총 경력', '경력을 선택', '기간을 선택'], field: 'careerYears' },
+  { keywords: ['유관 경력', '유관경력', '경력 기간', '경력기간', '총 경력', '경력을 선택', '기간을 선택', '기간을선택'], field: 'careerYears' },
   // 연봉
   { keywords: ['희망연봉', '희망 연봉'], field: 'salaryDesired' },
   { keywords: ['직전연봉', '직전 연봉', '현재연봉'], field: 'salaryPrev' },
@@ -141,10 +141,11 @@ function matchField(labelTexts, input) {
   // 각 라벨 텍스트를 가까운 순서대로 확인
   for (var t = 0; t < labelTexts.length; t++) {
     var text = labelTexts[t];
+    // 공백/특수공백 제거 버전도 준비 (non-breaking space 대응)
+    var textNoSpace = text.replace(/[\s\u00a0\u3000]+/g, '');
 
     for (var i = 0; i < FIELD_MAP.length; i++) {
       var map = FIELD_MAP[i];
-      // exclude 키워드 체크
       if (map.exclude) {
         var excluded = false;
         for (var k = 0; k < map.exclude.length; k++) {
@@ -153,7 +154,9 @@ function matchField(labelTexts, input) {
         if (excluded) continue;
       }
       for (var j = 0; j < map.keywords.length; j++) {
-        if (text.includes(map.keywords[j].toLowerCase())) {
+        var kw = map.keywords[j].toLowerCase();
+        var kwNoSpace = kw.replace(/\s+/g, '');
+        if (text.includes(kw) || textNoSpace.includes(kwNoSpace)) {
           return map.field;
         }
       }
@@ -276,28 +279,36 @@ function handleCustomSelect(el, value) {
     clickTarget.click();
     console.log('Fillme: clicked dropdown trigger');
 
-    // 여러 타이밍으로 옵션 선택 시도
-    [100, 300, 500, 800].forEach(function(delay) {
-      setTimeout(function() {
-        // 드롭다운 옵션 찾기 (다양한 셀렉터)
-        var options = document.querySelectorAll(
-          '[class*="option"], [class*="Option"], [role="option"], ' +
-          '[class*="menu"] li, [class*="Menu"] li, ' +
-          '[class*="dropdown"] li, [class*="list"] li, ' +
-          '[class*="item"], [class*="Item"]'
-        );
+    // 300ms 후 옵션 선택 (1회만)
+    setTimeout(function() {
+      var options = document.querySelectorAll(
+        '[class*="option"], [class*="Option"], [role="option"], ' +
+        '[class*="menu"] li, [class*="Menu"] li'
+      );
 
-        console.log('Fillme: found', options.length, 'options at', delay, 'ms');
+      var bestMatch = null;
+      options.forEach(function(opt) {
+        var optText = opt.textContent.trim();
+        if (!optText || optText.length > 30) return;
+        // 정확히 일치하는 것 우선
+        if (optText.toLowerCase() === val) {
+          bestMatch = opt;
+        }
+        // 포함 매칭 (정확 매칭 없을 때만)
+        if (!bestMatch && optText.toLowerCase().includes(val)) {
+          bestMatch = opt;
+        }
+      });
 
-        options.forEach(function(opt) {
-          var optText = opt.textContent.trim().toLowerCase();
-          if (optText === val || optText.includes(val) || val.includes(optText)) {
-            opt.click();
-            console.log('Fillme: selected option:', opt.textContent.trim());
-          }
-        });
-      }, delay);
-    });
+      if (bestMatch) {
+        bestMatch.click();
+        console.log('Fillme: selected option:', bestMatch.textContent.trim());
+      } else {
+        // 닫기
+        document.body.click();
+        console.log('Fillme: no matching option found for', val);
+      }
+    }, 300);
 
     return true;
   } catch(e) {
