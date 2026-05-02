@@ -649,6 +649,10 @@ function parseResumeText(text) {
   for (var pass = 0; pass < 4; pass++) {
     text = text.replace(/(\d)\s+(\d)/g, '$1$2');
   }
+  // 숫자와 점 사이 공백 제거 ("2014 .03" → "2014.03")
+  text = text.replace(/(\d)\s+\./g, '$1.');
+  text = text.replace(/\.\s+(\d)/g, '.$1');
+
   // 한글 단어 내 공백 정리 (PDF 추출 시 깨지는 패턴)
   text = text.replace(/대\s+학\s*교/g, '대학교');
   text = text.replace(/고\s*등\s*학\s*교/g, '고등학교');
@@ -707,17 +711,22 @@ function parseResumeText(text) {
 
   // === 학력 (다중) ===
   result._allEducation = [];
-  var eduRegex = /(\d{4}\.\d{2})\s*~\s*(\d{4}\.\d{2})\s+([가-힣\s]+?(?:대학교|고등학교|학점은행제))\s+([가-힣\s]*?(?:학과|학부|과))\s+졸업/g;
+  // "2014.03 ~ 2018.02 수원 대학교 정보미디어학과 졸업" 패턴
+  var eduRegex = /(\d{4}\.\d{2})\s*~\s*(\d{4}\.\d{2})\s+(.*?)\s+졸업/g;
   var eduM;
   while ((eduM = eduRegex.exec(flatText)) !== null) {
+    var eduText = eduM[3].trim();
+    // "수원 대학교 정보미디어학과" → school + major 분리
+    var schoolMatch = eduText.match(/(.*?(?:대학교|고등학교|학점은행제))\s*(.*)/);
     var edu = {
       start: eduM[1].replace('.', '-'),
       end: eduM[2].replace('.', '-'),
-      school: eduM[3],
-      major: eduM[4] || ''
+      school: schoolMatch ? schoolMatch[1].trim() : eduText,
+      major: schoolMatch && schoolMatch[2] ? schoolMatch[2].replace(/\(.*\)/, '').trim() : ''
     };
     if (/대학교/.test(edu.school)) edu.degree = '대학교';
     else if (/고등학교/.test(edu.school)) edu.degree = '고등학교';
+    else if (/학점은행제/.test(edu.school)) edu.degree = '대학교';
     else edu.degree = '';
     result._allEducation.push(edu);
   }
@@ -735,7 +744,8 @@ function parseResumeText(text) {
   // === 경력 (다중) ===
   result._allCareers = [];
   // "2024.08 ~ 재직중 F&F / 웹플랫폼팀 / 대리" 패턴
-  var careerRegex = /(\d{4}\.\d{2})\s*~\s*(재직중|현재|\d{4}\.\d{2})\s+((?:㈜|\(주\))?[가-힣a-zA-Z&\s]+?)\s*\/\s*([가-힣a-zA-Z0-9\s]+?(?:팀|부|실|파트|본부|센터|그룹))\s*\/\s*([가-힣]+)/g;
+  // "2024.08 ~ 재직중 F&F / 웹플랫폼팀 / 대리" 패턴
+  var careerRegex = /(\d{4}\.\d{2})\s*~\s*(재직중|현재|\d{4}\.\d{2})\s+(.*?)\s*\/\s*(.*?)\s*\/\s*(\S+)/g;
   var carM;
   while ((carM = careerRegex.exec(flatText)) !== null) {
     result._allCareers.push({
@@ -786,6 +796,7 @@ function parseResumeText(text) {
 
   // === 성별 ===
   if (/남성|male/i.test(flatText)) result.gender = 'male';
+  else if (result.military && result.military.startsWith('done')) result.gender = 'male'; // 군복무 → 남성
   else if (/여성|female/i.test(flatText)) result.gender = 'female';
 
   return result;
