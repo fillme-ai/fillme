@@ -645,10 +645,26 @@ function showUploadSuccess(count, parsed) {
 function parseResumeText(text) {
   var result = {};
 
-  // 전처리: 숫자 사이 불필요한 공백 제거 ("2 0 14" → "2014", "0 5" → "05")
-  text = text.replace(/(\d)\s+(\d)/g, '$1$2');
-  // "20 18.02" → "2018.02" (2차 패스)
-  text = text.replace(/(\d)\s+(\d)/g, '$1$2');
+  // 전처리: 숫자 사이 공백 제거 ("2 0 14" → "2014")
+  for (var pass = 0; pass < 4; pass++) {
+    text = text.replace(/(\d)\s+(\d)/g, '$1$2');
+  }
+  // 한글 단어 내 공백 정리 (PDF 추출 시 깨지는 패턴)
+  text = text.replace(/대\s+학\s*교/g, '대학교');
+  text = text.replace(/고\s*등\s*학\s*교/g, '고등학교');
+  text = text.replace(/학\s+과/g, '학과');
+  text = text.replace(/학\s+부/g, '학부');
+  text = text.replace(/재\s*직\s*중/g, '재직중');
+  text = text.replace(/만\s*기\s*전\s*역/g, '만기전역');
+  text = text.replace(/학\s*점\s*은\s*행\s*제/g, '학점은행제');
+  text = text.replace(/생\s*년\s*월\s*일/g, '생년월일');
+  text = text.replace(/연\s*락\s*처/g, '연락처');
+  text = text.replace(/인\s*적\s*사\s*항/g, '인적사항');
+  text = text.replace(/학\s*력\s*사\s*항/g, '학력사항');
+  text = text.replace(/경\s*력\s*사\s*항/g, '경력사항');
+  text = text.replace(/자\s*격\s*사\s*항/g, '자격사항');
+  text = text.replace(/병\s*역\s*사\s*항/g, '병역사항');
+  text = text.replace(/해\s*병/g, '해병');
 
   var lines = text.split(/\n/).map(function(l) { return l.trim(); });
   var fullText = text.replace(/[ \t]+/g, ' ');
@@ -691,7 +707,7 @@ function parseResumeText(text) {
 
   // === 학력 (다중) ===
   result._allEducation = [];
-  var eduRegex = /(\d{4}\.\d{2})\s*~\s*(\d{4}\.\d{2})\s+([가-힣]+(?:대학교|대학|고등학교|학점은행제))\s*([가-힣]*(?:학과|학부|과)?)\s*졸업/g;
+  var eduRegex = /(\d{4}\.\d{2})\s*~\s*(\d{4}\.\d{2})\s+([가-힣\s]+?(?:대학교|고등학교|학점은행제))\s+([가-힣\s]*?(?:학과|학부|과))\s+졸업/g;
   var eduM;
   while ((eduM = eduRegex.exec(flatText)) !== null) {
     var edu = {
@@ -719,7 +735,7 @@ function parseResumeText(text) {
   // === 경력 (다중) ===
   result._allCareers = [];
   // "2024.08 ~ 재직중 F&F / 웹플랫폼팀 / 대리" 패턴
-  var careerRegex = /(\d{4}\.\d{2})\s*~\s*(재직중|현재|\d{4}\.\d{2})\s+((?:㈜|\(주\))?[가-힣a-zA-Z&]+)\s*\/\s*([가-힣a-zA-Z0-9]+(?:팀|부|실|파트|본부|센터|그룹))\s*\/\s*([가-힣]+)/g;
+  var careerRegex = /(\d{4}\.\d{2})\s*~\s*(재직중|현재|\d{4}\.\d{2})\s+((?:㈜|\(주\))?[가-힣a-zA-Z&\s]+?)\s*\/\s*([가-힣a-zA-Z0-9\s]+?(?:팀|부|실|파트|본부|센터|그룹))\s*\/\s*([가-힣]+)/g;
   var carM;
   while ((carM = careerRegex.exec(flatText)) !== null) {
     result._allCareers.push({
