@@ -215,24 +215,27 @@ chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
     var filled = 0;
     var matched = {};
 
-    inputs.forEach(function(input) {
+    console.log('Fillme fillForm: found', inputs.length, 'inputs');
+    console.log('Fillme profile keys:', Object.keys(profile).filter(function(k) { return profile[k]; }));
+
+    inputs.forEach(function(input, idx) {
       var labelText = getLabelText(input);
-      if (!labelText) return;
-
       var fieldKey = matchField(labelText);
+      console.log('Fillme [' + idx + ']:', input.tagName, input.type || '', '| label:', labelText.substring(0, 60), '→', fieldKey || 'NO MATCH', '| value in profile:', fieldKey ? (profile[fieldKey] ? 'YES' : 'NO') : '-');
 
-      if (fieldKey && profile[fieldKey] && !matched[fieldKey]) {
-        var success = setValue(input, profile[fieldKey]);
-        if (success) {
-          highlightField(input);
-          matched[fieldKey] = true;
-          filled++;
-          console.log('Fillme filled:', fieldKey, '=', profile[fieldKey]);
-        }
+      if (!labelText || !fieldKey) return;
+      if (!profile[fieldKey] || matched[fieldKey]) return;
+
+      var success = setValue(input, profile[fieldKey]);
+      if (success) {
+        highlightField(input);
+        matched[fieldKey] = true;
+        filled++;
+        console.log('Fillme FILLED:', fieldKey, '=', profile[fieldKey]);
       }
     });
 
-    console.log('Fillme total filled:', filled, matched);
+    console.log('Fillme total filled:', filled, '| matched:', JSON.stringify(matched));
     sendResponse({ filled: filled });
   }
 
