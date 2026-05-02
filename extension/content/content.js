@@ -300,11 +300,33 @@ function handleCustomSelect(el, value) {
         }
       });
 
+      // 경력 기간: 숫자 기반 범위 매칭 ("7년 8개월" → "7년 이상" 또는 "5년~10년")
+      if (!bestMatch && /\d+년/.test(val)) {
+        var targetYears = parseInt(val);
+        var bestYearMatch = null;
+        var bestYearDiff = Infinity;
+        options.forEach(function(opt) {
+          var optText = opt.textContent.trim();
+          if (!optText) return;
+          // "7년 이상", "5년~10년", "7년" 등 패턴
+          var nums = optText.match(/(\d+)/g);
+          if (nums) {
+            nums.forEach(function(n) {
+              var diff = Math.abs(parseInt(n) - targetYears);
+              if (diff < bestYearDiff) {
+                bestYearDiff = diff;
+                bestYearMatch = opt;
+              }
+            });
+          }
+        });
+        if (bestYearMatch) bestMatch = bestYearMatch;
+      }
+
       if (bestMatch) {
         bestMatch.click();
         console.log('Fillme: selected option:', bestMatch.textContent.trim());
       } else {
-        // 닫기
         document.body.click();
         console.log('Fillme: no matching option found for', val);
       }
