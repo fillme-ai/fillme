@@ -386,7 +386,7 @@ function parseWithGemini(text) {
   var apiUrl = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=' + GEMINI_API_KEY;
   var apiBody = JSON.stringify({
     contents: [{ parts: [{ text: prompt }] }],
-    generationConfig: { temperature: 0.1, responseMimeType: 'application/json' }
+    generationConfig: { temperature: 0.1 }
   });
 
   function callGemini(retries) {
@@ -411,7 +411,11 @@ function parseWithGemini(text) {
     try {
       var responseText = data.candidates[0].content.parts[0].text;
       console.log('Gemini response:', responseText.substring(0, 300));
-      var parsed = JSON.parse(responseText);
+      // ```json ... ``` 블록 추출
+      var jsonMatch = responseText.match(/```json\s*([\s\S]*?)```/) ||
+                      responseText.match(/```\s*([\s\S]*?)```/);
+      var jsonStr = jsonMatch ? jsonMatch[1].trim() : responseText.trim();
+      var parsed = JSON.parse(jsonStr);
       parsed = unmaskResult(parsed, masks);
       return parsed;
     } catch(e) {
@@ -505,7 +509,7 @@ function summarizeCareerDescriptions(detailText, careers) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       contents: [{ parts: [{ text: prompt }] }],
-      generationConfig: { temperature: 0.2, responseMimeType: 'application/json' }
+      generationConfig: { temperature: 0.2 }
     })
   })
   .then(function(res) { return res.json(); })
@@ -758,7 +762,9 @@ function parseResumeText(text) {
   text = text.replace(/파\s*트\s*너/g, '파트너');
   text = text.replace(/리\s*테\s*일/g, '리테일');
   // "404 - 802" → "404-802", "010 - 7336 - 7946" → "010-7336-7946"
-  text = text.replace(/(\d+)\s*-\s*(\d+)/g, '$1-$2');
+  for (var d = 0; d < 3; d++) {
+    text = text.replace(/(\d+)\s+-\s+(\d+)/g, '$1-$2');
+  }
 
   var lines = text.split(/\n/).map(function(l) { return l.trim(); });
   var fullText = text.replace(/[ \t]+/g, ' ');
