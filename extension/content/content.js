@@ -23,7 +23,7 @@ var FIELD_MAP = [
   { keywords: ['어학', '외국어', '토익', 'toeic'], field: 'langTest' },
   { keywords: ['점수', 'score'], field: 'langScore' },
   // 경력 기간
-  { keywords: ['유관 경력', '경력 기간', '경력기간', '총 경력'], field: 'careerYears' },
+  { keywords: ['유관 경력', '경력 기간', '경력기간', '총 경력', '경력을 선택', '기간을 선택'], field: 'careerYears' },
   // 연봉
   { keywords: ['희망연봉', '희망 연봉'], field: 'salaryDesired' },
   { keywords: ['직전연봉', '직전 연봉', '현재연봉'], field: 'salaryPrev' },
@@ -34,7 +34,7 @@ var FIELD_MAP = [
   // URL
   { keywords: ['url', '홈페이지', 'github', 'linkedin', '블로그', 'blog', '유관 url'], field: 'url' },
   // 지원동기
-  { keywords: ['지원동기', '지원 동기', '지원사유', '지원 사유'], field: 'motivation' }
+  { keywords: ['지원동기', '지원 동기', '지원사유', '지원 사유', '지원한 사유', '지원한 이유'], field: 'motivation' }
 ];
 
 // Get label texts for an input — returns array ordered by proximity (closest first)
@@ -268,29 +268,36 @@ function handleCustomSelect(el, value) {
   if (val === 'no') val = '비대상';
   if (val === 'yes') val = '대상';
 
+  console.log('Fillme custom select: trying to set', val, 'on', el.tagName, el.className.substring(0, 30));
+
   try {
-    // 1. 클릭해서 드롭다운 열기
-    el.click();
+    // 클릭 가능한 요소 찾기 (el 자체 또는 내부 버튼/div)
+    var clickTarget = el.querySelector('button, [class*="control"], [class*="trigger"], [class*="value"]') || el;
+    clickTarget.click();
+    console.log('Fillme: clicked dropdown trigger');
 
-    // 2. 약간의 딜레이 후 옵션 찾기
-    setTimeout(function() {
-      // 열린 드롭다운에서 옵션 찾기
-      var options = document.querySelectorAll('[class*="option"], [class*="Option"], [role="option"], li');
-      var found = false;
-      options.forEach(function(opt) {
-        var optText = opt.textContent.trim().toLowerCase();
-        if (optText.includes(val) || val.includes(optText)) {
-          opt.click();
-          found = true;
-          console.log('Fillme custom select clicked:', opt.textContent.trim());
-        }
-      });
+    // 여러 타이밍으로 옵션 선택 시도
+    [100, 300, 500, 800].forEach(function(delay) {
+      setTimeout(function() {
+        // 드롭다운 옵션 찾기 (다양한 셀렉터)
+        var options = document.querySelectorAll(
+          '[class*="option"], [class*="Option"], [role="option"], ' +
+          '[class*="menu"] li, [class*="Menu"] li, ' +
+          '[class*="dropdown"] li, [class*="list"] li, ' +
+          '[class*="item"], [class*="Item"]'
+        );
 
-      // 못 찾으면 드롭다운 닫기
-      if (!found) {
-        document.body.click();
-      }
-    }, 300);
+        console.log('Fillme: found', options.length, 'options at', delay, 'ms');
+
+        options.forEach(function(opt) {
+          var optText = opt.textContent.trim().toLowerCase();
+          if (optText === val || optText.includes(val) || val.includes(optText)) {
+            opt.click();
+            console.log('Fillme: selected option:', opt.textContent.trim());
+          }
+        });
+      }, delay);
+    });
 
     return true;
   } catch(e) {
