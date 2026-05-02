@@ -137,6 +137,25 @@ document.getElementById('tab-profile').addEventListener('click', function(e) {
   }
 });
 
+// ===== API Key save =====
+document.getElementById('saveApiKey').addEventListener('click', function() {
+  var key = document.getElementById('apiKeyInput').value;
+  if (!key.startsWith('sk-')) {
+    var s = document.getElementById('apiKeyStatus');
+    s.textContent = '⚠️ sk-로 시작하는 유효한 키를 입력하세요';
+    s.className = 'status error';
+    return;
+  }
+  OPENAI_API_KEY = key;
+  chrome.storage.local.set({ apiKey: key }, function() {
+    var s = document.getElementById('apiKeyStatus');
+    s.textContent = '✅ API 키가 저장되었습니다';
+    s.className = 'status success';
+    document.getElementById('apiKeyInput').value = '••••' + key.slice(-8);
+    setTimeout(function() { s.className = 'status'; }, 2000);
+  });
+});
+
 // Initialize with one empty entry each
 addEducation();
 addCareer();
@@ -255,8 +274,17 @@ document.getElementById('btnFill').addEventListener('click', function() {
   });
 });
 
-// ===== Gemini API =====
-var GEMINI_API_KEY = 'AIzaSyDwEwq_siYvy1NACYW99iTRMSz6Mtqg6p8';
+// ===== OpenAI API =====
+var OPENAI_API_KEY = '';
+
+// Load API key from local storage
+chrome.storage.local.get('apiKey', function(data) {
+  if (data.apiKey) {
+    OPENAI_API_KEY = data.apiKey;
+    var keyInput = document.getElementById('apiKeyInput');
+    if (keyInput) keyInput.value = '••••' + data.apiKey.slice(-8);
+  }
+});
 
 // Mask sensitive info before sending to AI
 function maskSensitiveInfo(text) {
@@ -348,45 +376,38 @@ function parseWithGemini(text) {
     '}\n\n' +
     '이력서 텍스트:\n' + maskedText;
 
-  var apiUrl = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=' + GEMINI_API_KEY;
-  var body = JSON.stringify({
-    contents: [{ parts: [{ text: prompt }] }],
-    generationConfig: { temperature: 0.1 }
-  });
-
-  function callApi(retries) {
-    return fetch(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: body })
-    .then(function(res) {
-      if (res.status === 429 && retries > 0) {
-        console.log('Gemini 429, retrying in 3s... (' + retries + ' left)');
-        return new Promise(function(resolve) {
-          setTimeout(function() { resolve(callApi(retries - 1)); }, 3000);
-        });
-      }
-      return res.json();
-    });
-  }
-
-  return callApi(2)
+  return fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer ' + OPENAI_API_KEY
+    },
+    body: JSON.stringify({
+      model: 'gpt-4o-mini',
+      messages: [
+        { role: 'system', content: '당신은 이력서 파싱 전문가입니다. 반드시 유효한 JSON만 출력하세요. 다른 텍스트는 출력하지 마세요.' },
+        { role: 'user', content: prompt }
+      ],
+      temperature: 0.1,
+      response_format: { type: 'json_object' }
+    })
+  })
+  .then(function(res) { return res.json(); })
   .then(function(data) {
     try {
-      var responseText = data.candidates[0].content.parts[0].text;
-      // JSON 블록 추출 (```json ... ``` 형태 대응)
-      var jsonMatch = responseText.match(/```json\s*([\s\S]*?)```/) ||
-                      responseText.match(/```\s*([\s\S]*?)```/) ||
-                      [null, responseText];
-      var jsonStr = jsonMatch[1].trim();
-      var parsed = JSON.parse(jsonStr);
+      var responseText = data.choices[0].message.content;
+      console.log('GPT response:', responseText.substring(0, 200));
+      var parsed = JSON.parse(responseText);
       // 마스킹 해제
       parsed = unmaskResult(parsed, masks);
       return parsed;
     } catch(e) {
-      console.error('Gemini parse error:', e, data);
+      console.error('GPT parse error:', e, data);
       return null;
     }
   })
   .catch(function(err) {
-    console.error('Gemini API error:', err);
+    console.error('OpenAI API error:', err);
     return null;
   });
 }

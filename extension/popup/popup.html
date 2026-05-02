@@ -235,6 +235,7 @@
   <div class="tabs">
     <div class="tab active" data-tab="fill">자동 입력</div>
     <div class="tab" data-tab="profile">내 이력서</div>
+    <div class="tab" data-tab="settings">설정</div>
   </div>
 
   <!-- 자동 입력 탭 -->
@@ -373,6 +374,17 @@
     </div>
 
     <div class="status" id="saveStatus"></div>
+  </div>
+
+  <!-- 설정 탭 -->
+  <div class="tab-content" id="tab-settings">
+    <div class="section-title">OpenAI API Key</div>
+    <p style="font-size:0.75rem;color:#999;margin-bottom:0.5rem;">PDF 이력서 AI 분석에 사용됩니다. 키는 브라우저 로컬에만 저장됩니다.</p>
+    <div class="field">
+      <input type="password" id="apiKeyInput" placeholder="sk-...">
+    </div>
+    <button class="btn btn-primary" id="saveApiKey">키 저장</button>
+    <div class="status" id="apiKeyStatus"></div>
   </div>
 
   <script src="pdf.min.js"></script>
