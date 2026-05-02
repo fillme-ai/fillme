@@ -95,6 +95,194 @@ document.getElementById('btnFill').addEventListener('click', function() {
   });
 });
 
+// ===== Gemini API =====
+var GEMINI_API_KEY = 'AIzaSyDwEwq_siYvy1NACYW99iTRMSz6Mtqg6p8';
+
+// Mask sensitive info before sending to AI
+function maskSensitiveInfo(text) {
+  var masks = {};
+
+  // 전화번호 마스킹
+  var phoneMatch = text.match(/01[0-9][\-\s\.]*\d{3,4}[\-\s\.]*\d{4}/g);
+  if (phoneMatch) {
+    phoneMatch.forEach(function(p, i) {
+      var key = '__PHONE' + i + '__';
+      masks[key] = p;
+      text = text.replace(p, key);
+    });
+  }
+
+  // 이메일 마스킹
+  var emailMatch = text.match(/[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/g);
+  if (emailMatch) {
+    emailMatch.forEach(function(e, i) {
+      var key = '__EMAIL' + i + '__';
+      masks[key] = e;
+      text = text.replace(e, key);
+    });
+  }
+
+  // 주소 마스킹 (시/도 + 상세주소)
+  var addrMatch = text.match(/(서울|부산|대구|인천|광주|대전|울산|세종|경기|강원|충북|충남|전북|전남|경북|경남|제주)[가-힣0-9\s\-\(\),\.·]{5,60}/g);
+  if (addrMatch) {
+    addrMatch.forEach(function(a, i) {
+      var key = '__ADDR' + i + '__';
+      masks[key] = a;
+      text = text.replace(a, key);
+    });
+  }
+
+  return { text: text, masks: masks };
+}
+
+// Unmask values in parsed result
+function unmaskResult(parsed, masks) {
+  for (var field in parsed) {
+    if (typeof parsed[field] === 'string') {
+      for (var key in masks) {
+        parsed[field] = parsed[field].replace(key, masks[key]);
+      }
+    }
+    if (Array.isArray(parsed[field])) {
+      parsed[field] = parsed[field].map(function(item) {
+        if (typeof item === 'object') {
+          for (var f in item) {
+            if (typeof item[f] === 'string') {
+              for (var key in masks) {
+                item[f] = item[f].replace(key, masks[key]);
+              }
+            }
+          }
+        }
+        return item;
+      });
+    }
+  }
+  return parsed;
+}
+
+// Call Gemini API to parse resume text
+function parseWithGemini(text) {
+  // 마스킹
+  var masked = maskSensitiveInfo(text);
+  var maskedText = masked.text;
+  var masks = masked.masks;
+
+  var prompt = '다음은 이력서에서 추출한 텍스트입니다. 아래 JSON 형식으로 정확하게 파싱해주세요.\n' +
+    '중요: 반드시 유효한 JSON만 출력하세요. 다른 텍스트는 출력하지 마세요.\n' +
+    '배열 항목은 모두 포함해주세요 (경력, 학력, 자격증 등).\n\n' +
+    '출력 JSON 형식:\n' +
+    '{\n' +
+    '  "name": "이름",\n' +
+    '  "email": "이메일",\n' +
+    '  "phone": "연락처",\n' +
+    '  "address": "주소",\n' +
+    '  "birth": "YYYY-MM-DD",\n' +
+    '  "gender": "male 또는 female",\n' +
+    '  "education": [{"school": "학교명", "major": "전공", "degree": "학위(고등학교/전문대/대학교/대학원)", "start": "YYYY-MM", "end": "YYYY-MM", "gpa": "학점"}],\n' +
+    '  "careers": [{"company": "회사명", "department": "부서", "position": "직급", "start": "YYYY-MM", "end": "YYYY-MM 또는 재직중", "description": "주요업무 요약"}],\n' +
+    '  "certificates": ["자격증1", "자격증2"],\n' +
+    '  "languages": [{"test": "시험명", "score": "점수"}],\n' +
+    '  "military": "해병만기전역 등 원문 그대로",\n' +
+    '  "skills": ["스킬1", "스킬2"]\n' +
+    '}\n\n' +
+    '이력서 텍스트:\n' + maskedText;
+
+  return fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=' + GEMINI_API_KEY, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      contents: [{ parts: [{ text: prompt }] }],
+      generationConfig: { temperature: 0.1 }
+    })
+  })
+  .then(function(res) { return res.json(); })
+  .then(function(data) {
+    try {
+      var responseText = data.candidates[0].content.parts[0].text;
+      // JSON 블록 추출 (```json ... ``` 형태 대응)
+      var jsonMatch = responseText.match(/```json\s*([\s\S]*?)```/) ||
+                      responseText.match(/```\s*([\s\S]*?)```/) ||
+                      [null, responseText];
+      var jsonStr = jsonMatch[1].trim();
+      var parsed = JSON.parse(jsonStr);
+      // 마스킹 해제
+      parsed = unmaskResult(parsed, masks);
+      return parsed;
+    } catch(e) {
+      console.error('Gemini parse error:', e, data);
+      return null;
+    }
+  })
+  .catch(function(err) {
+    console.error('Gemini API error:', err);
+    return null;
+  });
+}
+
+// Convert Gemini result to profile fields
+function geminiToProfile(parsed) {
+  var profile = {};
+  if (!parsed) return profile;
+
+  profile.name = parsed.name || '';
+  profile.email = parsed.email || '';
+  profile.phone = parsed.phone || '';
+  profile.address = parsed.address || '';
+  profile.birth = parsed.birth || '';
+  profile.gender = parsed.gender || '';
+
+  // 학력 (가장 최근 = 첫 번째)
+  if (parsed.education && parsed.education.length > 0) {
+    var edu = parsed.education[0];
+    profile.school = edu.school || '';
+    profile.major = edu.major || '';
+    profile.gpa = edu.gpa || '';
+    profile.schoolStart = edu.start || '';
+    profile.schoolEnd = edu.end || '';
+    profile.degree = edu.degree || '';
+  }
+
+  // 경력 (가장 최근 = 첫 번째)
+  if (parsed.careers && parsed.careers.length > 0) {
+    var career = parsed.careers[0];
+    profile.company = career.company || '';
+    profile.position = career.position || '';
+    profile.workStart = career.start || '';
+    profile.workEnd = career.end || '';
+    profile.workDesc = career.description || '';
+  }
+
+  // 자격증
+  if (parsed.certificates && parsed.certificates.length > 0) {
+    profile.certs = parsed.certificates.join(', ');
+  }
+
+  // 어학
+  if (parsed.languages && parsed.languages.length > 0) {
+    profile.langTest = parsed.languages[0].test || '';
+    profile.langScore = parsed.languages[0].score || '';
+  }
+
+  // 병역
+  if (parsed.military) {
+    var mil = parsed.military;
+    if (/해병/.test(mil)) profile.military = 'done_marine';
+    else if (/해군/.test(mil)) profile.military = 'done_navy';
+    else if (/공군/.test(mil)) profile.military = 'done_air';
+    else if (/군필|만기전역|전역/.test(mil)) profile.military = 'done';
+    else if (/면제|비대상/.test(mil)) profile.military = 'exempt';
+  }
+
+  // 전체 경력/학력 데이터도 저장 (나중에 사용)
+  profile._allCareers = parsed.careers || [];
+  profile._allEducation = parsed.education || [];
+  profile._allCerts = parsed.certificates || [];
+  profile._skills = parsed.skills || [];
+
+  return profile;
+}
+
 // ===== Resume File Upload & Parsing =====
 
 // PDF.js worker setup
@@ -165,13 +353,27 @@ function parsePDF(file) {
         }
         Promise.all(pages).then(function(texts) {
           var allText = texts.join('\n');
-          console.log('Extracted text:', allText);
-          var parsed = parseResumeText(allText);
           console.log('Extracted text:', allText.substring(0, 500));
-          console.log('Parsed result:', parsed);
-          fillProfileFields(parsed);
-          showParsing(false);
-          showUploadSuccess(Object.keys(parsed).length, parsed);
+
+          // AI 파싱 시도, 실패 시 로컬 파싱 폴백
+          parseWithGemini(allText).then(function(aiResult) {
+            var profile, displayResult;
+            if (aiResult) {
+              profile = geminiToProfile(aiResult);
+              displayResult = profile;
+              console.log('AI parsed:', aiResult);
+            } else {
+              profile = parseResumeText(allText);
+              displayResult = profile;
+              console.log('Fallback local parse:', profile);
+            }
+            fillProfileFields(profile);
+            showParsing(false);
+            var count = Object.keys(profile).filter(function(k) {
+              return profile[k] && !k.startsWith('_');
+            }).length;
+            showUploadSuccess(count, displayResult);
+          });
         });
       }).catch(function(err) {
         console.error('PDF parse error:', err);
