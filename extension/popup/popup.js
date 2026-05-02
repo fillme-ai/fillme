@@ -359,6 +359,8 @@ function parseWithGemini(text) {
   var prompt = '다음은 이력서에서 추출한 텍스트입니다. 아래 JSON 형식으로 정확하게 파싱해주세요.\n' +
     '중요: 반드시 유효한 JSON만 출력하세요. 다른 텍스트는 출력하지 마세요.\n' +
     '배열 항목은 모두 포함해주세요 (경력, 학력, 자격증 등).\n\n' +
+    '경력의 description은 프로젝트 제목을 나열하지 말고, 그 회사에서 한 업무를 HR담당자가 이해할 수 있도록 한 줄로 간결하게 요약해주세요.\n' +
+    '예시: "이커머스 플랫폼 O2O 배송/글로벌몰 구축 PM 및 AI 기반 운영 자동화 기획"\n\n' +
     '출력 JSON 형식:\n' +
     '{\n' +
     '  "name": "이름",\n' +
@@ -368,8 +370,8 @@ function parseWithGemini(text) {
     '  "birth": "YYYY-MM-DD",\n' +
     '  "gender": "male 또는 female",\n' +
     '  "education": [{"school": "학교명", "major": "전공", "degree": "학위(고등학교/전문대/대학교/대학원)", "start": "YYYY-MM", "end": "YYYY-MM", "gpa": "학점"}],\n' +
-    '  "careers": [{"company": "회사명", "department": "부서", "position": "직급", "start": "YYYY-MM", "end": "YYYY-MM 또는 재직중", "description": "주요업무 요약"}],\n' +
-    '  "certificates": ["자격증1", "자격증2"],\n' +
+    '  "careers": [{"company": "회사명", "department": "부서", "position": "직급", "start": "YYYY-MM", "end": "YYYY-MM 또는 재직중", "description": "HR담당자가 이해할 수 있는 한 줄 업무 요약"}],\n' +
+    '  "certificates": ["자격증1 (취득연도)", "자격증2 (취득연도)"],\n' +
     '  "languages": [{"test": "시험명", "score": "점수"}],\n' +
     '  "military": "해병만기전역 등 원문 그대로",\n' +
     '  "skills": ["스킬1", "스킬2"]\n' +
@@ -490,9 +492,11 @@ function geminiToProfile(parsed) {
 function summarizeCareerDescriptions(detailText, careers) {
   if (!GEMINI_API_KEY) return Promise.resolve();
 
-  var prompt = '아래는 이력서의 상세 경력 내용입니다. 각 회사별로 주요 업무를 1~2줄로 간결하게 요약해주세요.\n' +
-    '채용 지원서에 쓸 수 있도록 핵심만 짧게 작성해주세요.\n' +
-    '반드시 JSON 형식으로만 출력하세요: [{"company":"회사명","summary":"요약"}]\n\n' +
+  var prompt = '아래는 이력서의 상세 경력 내용입니다.\n' +
+    '각 회사별로 이 사람이 어떤 업무를 했는지 HR담당자가 바로 이해할 수 있도록 한 줄로 요약해주세요.\n' +
+    '프로젝트 제목을 나열하지 말고, 역할과 성과 중심으로 간결하게 작성해주세요.\n' +
+    '예시: "이커머스 플랫폼 O2O 배송/글로벌몰 구축 PM 및 AI 기반 운영 자동화 기획"\n\n' +
+    '반드시 JSON 형식으로만 출력하세요: [{"company":"회사명","summary":"한 줄 요약"}]\n\n' +
     '회사 목록: ' + careers.map(function(c) { return c.company; }).join(', ') + '\n\n' +
     '상세 경력:\n' + detailText.substring(0, 3000);
 
