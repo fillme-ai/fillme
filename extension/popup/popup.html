@@ -186,6 +186,44 @@
     }
     .divider::before { left: 0; }
     .divider::after { right: 0; }
+
+    .add-btn {
+      float: right;
+      background: #667eea;
+      color: white;
+      border: none;
+      border-radius: 50%;
+      width: 22px;
+      height: 22px;
+      font-size: 1rem;
+      cursor: pointer;
+      line-height: 20px;
+    }
+    .remove-btn {
+      background: #e53935;
+      color: white;
+      border: none;
+      border-radius: 50%;
+      width: 20px;
+      height: 20px;
+      font-size: 0.8rem;
+      cursor: pointer;
+      position: absolute;
+      top: 0.3rem;
+      right: 0.3rem;
+    }
+    .entry-card {
+      background: #f8f9ff;
+      border-radius: 10px;
+      padding: 0.8rem;
+      margin-bottom: 0.6rem;
+      position: relative;
+    }
+    .entry-card .entry-num {
+      font-size: 0.7rem;
+      color: #999;
+      margin-bottom: 0.4rem;
+    }
   </style>
 </head>
 <body>
@@ -276,74 +314,14 @@
       </div>
     </div>
 
-    <div class="section-title">학력</div>
-    <div class="field">
-      <label>학교명</label>
-      <input type="text" id="school" placeholder="한국대학교">
-    </div>
-    <div class="row">
-      <div class="field">
-        <label>전공</label>
-        <input type="text" id="major" placeholder="경영학과">
-      </div>
-      <div class="field">
-        <label>학점</label>
-        <input type="text" id="gpa" placeholder="3.8 / 4.5">
-      </div>
-    </div>
-    <div class="row">
-      <div class="field">
-        <label>입학년도</label>
-        <input type="text" id="schoolStart" placeholder="2014-03">
-      </div>
-      <div class="field">
-        <label>졸업년도</label>
-        <input type="text" id="schoolEnd" placeholder="2018-02">
-      </div>
-    </div>
-    <div class="field">
-      <label>학력 구분</label>
-      <select id="degree">
-        <option value="">선택</option>
-        <option value="high">고등학교</option>
-        <option value="college">전문대 (2/3년제)</option>
-        <option value="university">대학교 (4년제)</option>
-        <option value="master">대학원 (석사)</option>
-        <option value="phd">대학원 (박사)</option>
-      </select>
-    </div>
+    <div class="section-title">학력 <button class="add-btn" onclick="addEducation()">+</button></div>
+    <div id="educationList"></div>
 
-    <div class="section-title">경력</div>
-    <div class="field">
-      <label>회사명</label>
-      <input type="text" id="company" placeholder="(주)테크스타">
-    </div>
-    <div class="row">
-      <div class="field">
-        <label>직무/직책</label>
-        <input type="text" id="position" placeholder="마케팅팀 대리">
-      </div>
-    </div>
-    <div class="row">
-      <div class="field">
-        <label>입사일</label>
-        <input type="text" id="workStart" placeholder="2018-03">
-      </div>
-      <div class="field">
-        <label>퇴사일</label>
-        <input type="text" id="workEnd" placeholder="2020-06">
-      </div>
-    </div>
-    <div class="field">
-      <label>담당 업무</label>
-      <textarea id="workDesc" placeholder="주요 업무 내용을 입력하세요"></textarea>
-    </div>
+    <div class="section-title">경력 <button class="add-btn" onclick="addCareer()">+</button></div>
+    <div id="careerList"></div>
 
-    <div class="section-title">자격/어학/병역</div>
-    <div class="field">
-      <label>자격증</label>
-      <input type="text" id="certs" placeholder="정보처리기사, SQLD">
-    </div>
+    <div class="section-title">자격증 <button class="add-btn" onclick="addCert()">+</button></div>
+    <div id="certList"></div>
     <div class="row">
       <div class="field">
         <label>어학 시험</label>

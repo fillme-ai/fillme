@@ -1,11 +1,130 @@
 // Profile fields to save/load
-var PROFILE_FIELDS = [
+var BASIC_FIELDS = [
   'name', 'nameEnFirst', 'nameEnLast', 'email', 'phone', 'address', 'birth', 'gender',
-  'school', 'major', 'gpa', 'schoolStart', 'schoolEnd', 'degree',
-  'company', 'position', 'workStart', 'workEnd', 'workDesc',
-  'certs', 'langTest', 'langScore', 'military',
+  'langTest', 'langScore', 'military',
   'salaryDesired', 'salaryPrev', 'veteran', 'disability'
 ];
+
+// For backward compatibility
+var PROFILE_FIELDS = BASIC_FIELDS;
+
+// ===== Dynamic Education/Career/Cert Entries =====
+var eduCount = 0;
+var careerCount = 0;
+var certCount = 0;
+
+function addEducation(data) {
+  eduCount++;
+  var i = eduCount;
+  var d = data || {};
+  var html = '<div class="entry-card" id="edu-' + i + '">' +
+    '<button class="remove-btn" onclick="removeEntry(\'edu-' + i + '\')">×</button>' +
+    '<div class="entry-num">학력 ' + i + '</div>' +
+    '<div class="field"><input type="text" data-field="school" placeholder="학교명" value="' + (d.school||'') + '"></div>' +
+    '<div class="row"><div class="field"><input type="text" data-field="major" placeholder="전공" value="' + (d.major||'') + '"></div>' +
+    '<div class="field"><input type="text" data-field="gpa" placeholder="학점 (3.8/4.5)" value="' + (d.gpa||'') + '"></div></div>' +
+    '<div class="row"><div class="field"><input type="text" data-field="start" placeholder="입학 (2014-03)" value="' + (d.start||'') + '"></div>' +
+    '<div class="field"><input type="text" data-field="end" placeholder="졸업 (2018-02)" value="' + (d.end||'') + '"></div></div>' +
+    '<div class="field"><select data-field="degree">' +
+    '<option value="">학력구분</option><option value="high"' + (d.degree==='고등학교'?' selected':'') + '>고등학교</option>' +
+    '<option value="college"' + (d.degree==='전문대'?' selected':'') + '>전문대</option>' +
+    '<option value="university"' + (d.degree==='대학교'||d.degree==='4년제'?' selected':'') + '>대학교 (4년제)</option>' +
+    '<option value="master"' + (d.degree==='대학원'||d.degree==='석사'?' selected':'') + '>대학원 (석사)</option>' +
+    '</select></div></div>';
+  document.getElementById('educationList').insertAdjacentHTML('beforeend', html);
+}
+
+function addCareer(data) {
+  careerCount++;
+  var i = careerCount;
+  var d = data || {};
+  var html = '<div class="entry-card" id="career-' + i + '">' +
+    '<button class="remove-btn" onclick="removeEntry(\'career-' + i + '\')">×</button>' +
+    '<div class="entry-num">경력 ' + i + '</div>' +
+    '<div class="field"><input type="text" data-field="company" placeholder="회사명" value="' + (d.company||'') + '"></div>' +
+    '<div class="row"><div class="field"><input type="text" data-field="department" placeholder="부서" value="' + (d.department||'') + '"></div>' +
+    '<div class="field"><input type="text" data-field="position" placeholder="직급" value="' + (d.position||'') + '"></div></div>' +
+    '<div class="row"><div class="field"><input type="text" data-field="start" placeholder="입사 (2020-03)" value="' + (d.start||'') + '"></div>' +
+    '<div class="field"><input type="text" data-field="end" placeholder="퇴사 (2023-06)" value="' + (d.end||'') + '"></div></div>' +
+    '<div class="field"><textarea data-field="description" placeholder="주요 업무">' + (d.description||'') + '</textarea></div></div>';
+  document.getElementById('careerList').insertAdjacentHTML('beforeend', html);
+}
+
+function addCert(data) {
+  certCount++;
+  var i = certCount;
+  var d = data || {};
+  var val = (typeof d === 'string') ? d : (d.name || '');
+  var html = '<div class="entry-card" id="cert-' + i + '" style="padding:0.5rem 0.8rem;">' +
+    '<button class="remove-btn" onclick="removeEntry(\'cert-' + i + '\')">×</button>' +
+    '<div class="field" style="margin:0;padding-right:1.5rem;"><input type="text" data-field="certName" placeholder="자격증명" value="' + val + '"></div></div>';
+  document.getElementById('certList').insertAdjacentHTML('beforeend', html);
+}
+
+function removeEntry(id) {
+  var el = document.getElementById(id);
+  if (el) el.remove();
+}
+
+// Collect all dynamic entries into profile data
+function collectAllData() {
+  var profile = {};
+
+  // Basic fields
+  BASIC_FIELDS.forEach(function(field) {
+    var el = document.getElementById(field);
+    if (el) profile[field] = el.value;
+  });
+
+  // Education entries
+  profile.education = [];
+  document.querySelectorAll('#educationList .entry-card').forEach(function(card) {
+    var entry = {};
+    card.querySelectorAll('[data-field]').forEach(function(inp) {
+      entry[inp.dataset.field] = inp.value;
+    });
+    if (entry.school) profile.education.push(entry);
+  });
+
+  // Career entries
+  profile.careers = [];
+  document.querySelectorAll('#careerList .entry-card').forEach(function(card) {
+    var entry = {};
+    card.querySelectorAll('[data-field]').forEach(function(inp) {
+      entry[inp.dataset.field] = inp.value;
+    });
+    if (entry.company) profile.careers.push(entry);
+  });
+
+  // Cert entries
+  profile.certificates = [];
+  document.querySelectorAll('#certList .entry-card').forEach(function(card) {
+    var inp = card.querySelector('[data-field="certName"]');
+    if (inp && inp.value) profile.certificates.push(inp.value);
+  });
+
+  // Backward compat: first entries into flat fields
+  if (profile.education.length > 0) {
+    var e = profile.education[0];
+    profile.school = e.school; profile.major = e.major; profile.gpa = e.gpa;
+    profile.schoolStart = e.start; profile.schoolEnd = e.end; profile.degree = e.degree;
+  }
+  if (profile.careers.length > 0) {
+    var c = profile.careers[0];
+    profile.company = c.company; profile.position = c.position;
+    profile.workStart = c.start; profile.workEnd = c.end; profile.workDesc = c.description;
+  }
+  if (profile.certificates.length > 0) {
+    profile.certs = profile.certificates.join(', ');
+  }
+
+  return profile;
+}
+
+// Initialize with one empty entry each
+addEducation();
+addCareer();
+addCert();
 
 // ===== Tab switching =====
 document.querySelectorAll('.tab').forEach(function(tab) {
@@ -20,26 +139,43 @@ document.querySelectorAll('.tab').forEach(function(tab) {
 // ===== Load saved profile =====
 chrome.storage.local.get('profile', function(data) {
   if (data.profile) {
-    PROFILE_FIELDS.forEach(function(field) {
+    // Basic fields
+    BASIC_FIELDS.forEach(function(field) {
       var el = document.getElementById(field);
       if (el && data.profile[field]) {
         el.value = data.profile[field];
       }
     });
+
+    // Education entries
+    if (data.profile.education && data.profile.education.length > 0) {
+      document.getElementById('educationList').innerHTML = '';
+      eduCount = 0;
+      data.profile.education.forEach(function(edu) { addEducation(edu); });
+    }
+
+    // Career entries
+    if (data.profile.careers && data.profile.careers.length > 0) {
+      document.getElementById('careerList').innerHTML = '';
+      careerCount = 0;
+      data.profile.careers.forEach(function(career) { addCareer(career); });
+    }
+
+    // Cert entries
+    if (data.profile.certificates && data.profile.certificates.length > 0) {
+      document.getElementById('certList').innerHTML = '';
+      certCount = 0;
+      data.profile.certificates.forEach(function(cert) { addCert(cert); });
+    }
   }
 });
 
 // ===== Save profile =====
 document.getElementById('btnSave').addEventListener('click', function() {
-  var profile = {};
-  PROFILE_FIELDS.forEach(function(field) {
-    var el = document.getElementById(field);
-    if (el) profile[field] = el.value;
-  });
-
+  var profile = collectAllData();
   chrome.storage.local.set({ profile: profile }, function() {
     var status = document.getElementById('saveStatus');
-    status.textContent = '✅ 이력서가 저장되었습니다!';
+    status.textContent = '✅ 이력서가 저장되었습니다! (학력 ' + (profile.education||[]).length + '개, 경력 ' + (profile.careers||[]).length + '개, 자격증 ' + (profile.certificates||[]).length + '개)';
     status.className = 'status success';
     setTimeout(function() { status.className = 'status'; }, 3000);
   });
@@ -381,11 +517,7 @@ function parsePDF(file) {
             showUploadSuccess(count, displayResult);
 
             // 자동 저장
-            var saveProfile = {};
-            PROFILE_FIELDS.forEach(function(field) {
-              var el = document.getElementById(field);
-              if (el) saveProfile[field] = el.value;
-            });
+            var saveProfile = collectAllData();
             chrome.storage.local.set({ profile: saveProfile }, function() {
               console.log('Profile auto-saved after PDF parse');
             });
@@ -577,17 +709,47 @@ function parseResumeText(text) {
 }
 
 // Fill profile form fields with parsed data
-function fillProfileFields(parsed) {
+function fillProfileFields(profile) {
   var filled = 0;
-  PROFILE_FIELDS.forEach(function(field) {
+
+  // Basic fields
+  BASIC_FIELDS.forEach(function(field) {
     var el = document.getElementById(field);
-    if (el && parsed[field]) {
-      el.value = parsed[field];
+    if (el && profile[field]) {
+      el.value = profile[field];
       el.style.transition = 'background-color 0.3s';
       el.style.backgroundColor = '#e8f5e9';
       filled++;
       setTimeout(function() { el.style.backgroundColor = ''; }, 5000);
     }
   });
+
+  // Education
+  var edus = profile._allEducation || profile.education || [];
+  if (edus.length > 0) {
+    document.getElementById('educationList').innerHTML = '';
+    eduCount = 0;
+    edus.forEach(function(edu) { addEducation(edu); });
+    filled += edus.length;
+  }
+
+  // Careers
+  var careers = profile._allCareers || profile.careers || [];
+  if (careers.length > 0) {
+    document.getElementById('careerList').innerHTML = '';
+    careerCount = 0;
+    careers.forEach(function(c) { addCareer(c); });
+    filled += careers.length;
+  }
+
+  // Certificates
+  var certs = profile._allCerts || profile.certificates || [];
+  if (certs.length > 0) {
+    document.getElementById('certList').innerHTML = '';
+    certCount = 0;
+    certs.forEach(function(c) { addCert(c); });
+    filled += certs.length;
+  }
+
   return filled;
 }
