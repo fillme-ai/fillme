@@ -18,7 +18,7 @@ function addEducation(data) {
   var i = eduCount;
   var d = data || {};
   var html = '<div class="entry-card" id="edu-' + i + '">' +
-    '<button class="remove-btn" onclick="removeEntry(\'edu-' + i + '\')">×</button>' +
+    '<button class="remove-btn" data-remove="edu-' + i + '">×</button>' +
     '<div class="entry-num">학력 ' + i + '</div>' +
     '<div class="field"><input type="text" data-field="school" placeholder="학교명" value="' + (d.school||'') + '"></div>' +
     '<div class="row"><div class="field"><input type="text" data-field="major" placeholder="전공" value="' + (d.major||'') + '"></div>' +
@@ -39,7 +39,7 @@ function addCareer(data) {
   var i = careerCount;
   var d = data || {};
   var html = '<div class="entry-card" id="career-' + i + '">' +
-    '<button class="remove-btn" onclick="removeEntry(\'career-' + i + '\')">×</button>' +
+    '<button class="remove-btn" data-remove="career-' + i + '">×</button>' +
     '<div class="entry-num">경력 ' + i + '</div>' +
     '<div class="field"><input type="text" data-field="company" placeholder="회사명" value="' + (d.company||'') + '"></div>' +
     '<div class="row"><div class="field"><input type="text" data-field="department" placeholder="부서" value="' + (d.department||'') + '"></div>' +
@@ -56,7 +56,7 @@ function addCert(data) {
   var d = data || {};
   var val = (typeof d === 'string') ? d : (d.name || '');
   var html = '<div class="entry-card" id="cert-' + i + '" style="padding:0.5rem 0.8rem;">' +
-    '<button class="remove-btn" onclick="removeEntry(\'cert-' + i + '\')">×</button>' +
+    '<button class="remove-btn" data-remove="cert-' + i + '">×</button>' +
     '<div class="field" style="margin:0;padding-right:1.5rem;"><input type="text" data-field="certName" placeholder="자격증명" value="' + val + '"></div></div>';
   document.getElementById('certList').insertAdjacentHTML('beforeend', html);
 }
@@ -120,6 +120,22 @@ function collectAllData() {
 
   return profile;
 }
+
+// + buttons
+document.getElementById('addEduBtn').addEventListener('click', function() { addEducation(); });
+document.getElementById('addCareerBtn').addEventListener('click', function() { addCareer(); });
+document.getElementById('addCertBtn').addEventListener('click', function() { addCert(); });
+
+// - buttons (event delegation)
+document.getElementById('tab-profile').addEventListener('click', function(e) {
+  var btn = e.target.closest('[data-remove]');
+  if (btn) {
+    var id = btn.getAttribute('data-remove');
+    var el = document.getElementById(id);
+    if (el) el.remove();
+    autoSave();
+  }
+});
 
 // Initialize with one empty entry each
 addEducation();
