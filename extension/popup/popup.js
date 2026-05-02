@@ -376,23 +376,42 @@ function parseWithGemini(text) {
     '}\n\n' +
     '이력서 텍스트:\n' + maskedText;
 
-  return fetch('https://api.openai.com/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': 'Bearer ' + OPENAI_API_KEY
-    },
-    body: JSON.stringify({
-      model: 'gpt-4o-mini',
-      messages: [
-        { role: 'system', content: '당신은 이력서 파싱 전문가입니다. 반드시 유효한 JSON만 출력하세요. 다른 텍스트는 출력하지 마세요.' },
-        { role: 'user', content: prompt }
-      ],
-      temperature: 0.1,
-      response_format: { type: 'json_object' }
+  if (!OPENAI_API_KEY) {
+    console.log('No API key set');
+    return Promise.resolve(null);
+  }
+
+  var apiBody = JSON.stringify({
+    model: 'gpt-4o-mini',
+    messages: [
+      { role: 'system', content: '당신은 이력서 파싱 전문가입니다. 반드시 유효한 JSON만 출력하세요. 다른 텍스트는 출력하지 마세요.' },
+      { role: 'user', content: prompt }
+    ],
+    temperature: 0.1,
+    response_format: { type: 'json_object' }
+  });
+
+  function callGPT(retries) {
+    return fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + OPENAI_API_KEY
+      },
+      body: apiBody
     })
-  })
-  .then(function(res) { return res.json(); })
+    .then(function(res) {
+      if (res.status === 429 && retries > 0) {
+        console.log('GPT 429, retrying in 5s... (' + retries + ' left)');
+        return new Promise(function(resolve) {
+          setTimeout(function() { resolve(callGPT(retries - 1)); }, 5000);
+        });
+      }
+      return res.json();
+    });
+  }
+
+  return callGPT(3)
   .then(function(data) {
     try {
       var responseText = data.choices[0].message.content;
@@ -633,7 +652,12 @@ function showUploadSuccess(count, parsed) {
 // Parse resume text into structured fields
 function parseResumeText(text) {
   var result = {};
-  // fullText: 공백 정규화 (줄바꿈 유지)
+
+  // 전처리: 숫자 사이 불필요한 공백 제거 ("2 0 14" → "2014", "0 5" → "05")
+  text = text.replace(/(\d)\s+(\d)/g, '$1$2');
+  // "20 18.02" → "2018.02" (2차 패스)
+  text = text.replace(/(\d)\s+(\d)/g, '$1$2');
+
   var lines = text.split(/\n/).map(function(l) { return l.trim(); });
   var fullText = text.replace(/[ \t]+/g, ' ');
   var flatText = text.replace(/\s+/g, ' ');
@@ -673,65 +697,60 @@ function parseResumeText(text) {
     if (birthMatch) result.birth = birthMatch[1].replace(/[\.\s\/]/g, '-');
   }
 
-  // === 학력 ===
-  // "수원대학교 정보미디어학과 졸업" 형태
-  var eduMatch = flatText.match(/([가-힣]+대학교)\s+([가-힣]+(?:학과|학부))\s+졸업/);
-  if (eduMatch) {
-    result.school = eduMatch[1];
-    result.major = eduMatch[2];
+  // === 학력 (다중) ===
+  result._allEducation = [];
+  var eduRegex = /(\d{4}\.\d{2})\s*~\s*(\d{4}\.\d{2})\s+([가-힣]+(?:대학교|대학|고등학교|학점은행제))\s*([가-힣]*(?:학과|학부|과)?)\s*졸업/g;
+  var eduM;
+  while ((eduM = eduRegex.exec(flatText)) !== null) {
+    var edu = {
+      start: eduM[1].replace('.', '-'),
+      end: eduM[2].replace('.', '-'),
+      school: eduM[3],
+      major: eduM[4] || ''
+    };
+    if (/대학교/.test(edu.school)) edu.degree = '대학교';
+    else if (/고등학교/.test(edu.school)) edu.degree = '고등학교';
+    else edu.degree = '';
+    result._allEducation.push(edu);
   }
-  if (!result.school) {
-    var schoolMatch = flatText.match(/([가-힣]+대학교)/);
-    if (schoolMatch) result.school = schoolMatch[1];
-  }
-  if (!result.major) {
-    var majorMatch = flatText.match(/([가-힣]+(?:학과|학부))/);
-    if (majorMatch) result.major = majorMatch[1];
-  }
-
-  // 학력 기간: "2014.03 ~ 2018.02" 패턴 (대학교 근처)
-  var eduPeriod = flatText.match(/(\d{4})\.(\d{2})\s*~\s*(\d{4})\.(\d{2})\s+[가-힣]+대학교/);
-  if (eduPeriod) {
-    result.schoolStart = eduPeriod[1] + '-' + eduPeriod[2];
-    result.schoolEnd = eduPeriod[3] + '-' + eduPeriod[4];
+  if (result._allEducation.length > 0) {
+    result.school = result._allEducation[0].school;
+    result.major = result._allEducation[0].major;
+    result.schoolStart = result._allEducation[0].start;
+    result.schoolEnd = result._allEducation[0].end;
   }
 
   // 학점
   var gpaMatch = flatText.match(/(\d\.\d{1,2})\s*[\/\|]\s*(\d\.\d{1,2})/);
   if (gpaMatch) result.gpa = gpaMatch[0].replace('|', '/');
 
-  // === 경력 (가장 최근) ===
-  // "2024.08 ~ 재직중  F&F / 웹플랫폼팀 / 대리" 형태
-  var careerMatch = flatText.match(/\d{4}\.\d{2}\s*~\s*(?:재직중|현재|재직)\s+([가-힣a-zA-Z&]+)\s*\/\s*([가-힣a-zA-Z]+(?:팀|부|실|파트))\s*\/\s*([가-힣]+)/);
-  if (careerMatch) {
-    result.company = careerMatch[1].trim();
-    result.position = careerMatch[3].trim(); // 직책 (대리, 사원 등)
+  // === 경력 (다중) ===
+  result._allCareers = [];
+  // "2024.08 ~ 재직중 F&F / 웹플랫폼팀 / 대리" 패턴
+  var careerRegex = /(\d{4}\.\d{2})\s*~\s*(재직중|현재|\d{4}\.\d{2})\s+((?:㈜|\(주\))?[가-힣a-zA-Z&]+)\s*\/\s*([가-힣a-zA-Z0-9]+(?:팀|부|실|파트|본부|센터|그룹))\s*\/\s*([가-힣]+)/g;
+  var carM;
+  while ((carM = careerRegex.exec(flatText)) !== null) {
+    result._allCareers.push({
+      start: carM[1].replace('.', '-'),
+      end: carM[2] === '재직중' || carM[2] === '현재' ? '재직중' : carM[2].replace('.', '-'),
+      company: carM[3].replace(/^[㈜\(주\)]/, '').trim(),
+      department: carM[4],
+      position: carM[5]
+    });
   }
-  if (!result.company) {
-    // "㈜무신사" 또는 "회사명" 패턴
-    var compMatch = flatText.match(/(?:㈜|\(주\)|주식회사)\s*([가-힣a-zA-Z&]{2,15})/);
-    if (compMatch) result.company = compMatch[1].trim();
+  if (result._allCareers.length > 0) {
+    result.company = result._allCareers[0].company;
+    result.position = result._allCareers[0].position;
+    result.workStart = result._allCareers[0].start;
+    result.workEnd = result._allCareers[0].end;
   }
 
-  // 경력 기간 (가장 최근)
-  var workPeriod = flatText.match(/(\d{4})\.(\d{2})\s*~\s*(?:재직중|현재|재직)/);
-  if (workPeriod) {
-    result.workStart = workPeriod[1] + '-' + workPeriod[2];
-    result.workEnd = '재직중';
-  }
-
-  // === 자격증 ===
-  // "자격사항" 섹션 아래의 내용들
-  var certSection = flatText.match(/자격사항\s+([\s\S]{10,200}?)(?=교육사항|병역사항|어학|기타|$)/);
-  if (certSection) {
-    var certText = certSection[1];
-    var certs = certText.match(/([가-힣a-zA-Z]+(?:기사|관리사|자격|기술자격|능력검정)[가-힣0-9\s]*\d*급?)/g);
-    if (certs) result.certs = certs.map(function(c) { return c.trim(); }).join(', ');
-  }
-  if (!result.certs) {
-    // 직접 매칭
-    var certNames = flatText.match(/(유통관리사[가-힣0-9\s]*\d*급?|그래픽기술자격[가-힣0-9\s]*\d*급?|텔레마케팅관리사|정보처리기사|컴퓨터활용능력[가-힣0-9\s]*\d*급?|한국사능력검정[가-힣0-9\s]*\d*급?|SQLD|ADsP|빅데이터분석기사|공인회계사|세무사|공인중개사|사회복지사)/g);
-    if (certNames) result.certs = certNames.map(function(c) { return c.trim(); }).join(', ');
+  // === 자격증 (다중) ===
+  result._allCerts = [];
+  var certNames = flatText.match(/(유통관리사\s*\d*급?|그래픽기술자격\s*\d*급?|텔레마케팅관리사|정보처리기사|컴퓨터활용능력\s*\d*급?|한국사능력검정\s*\d*급?|SQLD|ADsP|빅데이터분석기사|공인회계사|세무사|공인중개사|사회복지사|전기기사|건축기사)/g);
+  if (certNames) {
+    result._allCerts = certNames.map(function(c) { return c.trim(); });
+    result.certs = result._allCerts.join(', ');
   }
 
   // === 어학 ===
