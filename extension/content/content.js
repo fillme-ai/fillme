@@ -274,9 +274,12 @@ function handleCustomSelect(el, value) {
   console.log('Fillme custom select: trying to set', val, 'on', el.tagName, el.className.substring(0, 30));
 
   try {
-    // 클릭 가능한 요소 찾기 (el 자체 또는 내부 버튼/div)
-    var clickTarget = el.querySelector('button, [class*="control"], [class*="trigger"], [class*="value"]') || el;
-    clickTarget.click();
+    // 클릭 가능한 요소 찾기
+    var clickTarget = el.querySelector('button, [class*="control"], [class*="trigger"], [class*="value"], [class*="placeholder"]') || el;
+    // React 호환 클릭
+    clickTarget.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+    clickTarget.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+    clickTarget.dispatchEvent(new MouseEvent('click', { bubbles: true }));
     console.log('Fillme: clicked dropdown trigger');
 
     // 300ms 후 옵션 선택 (1회만)
@@ -324,7 +327,9 @@ function handleCustomSelect(el, value) {
       }
 
       if (bestMatch) {
-        bestMatch.click();
+        bestMatch.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+        bestMatch.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+        bestMatch.dispatchEvent(new MouseEvent('click', { bubbles: true }));
         console.log('Fillme: selected option:', bestMatch.textContent.trim());
       } else {
         document.body.click();
