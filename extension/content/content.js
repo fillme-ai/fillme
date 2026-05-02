@@ -56,48 +56,46 @@ function getLabelText(input) {
   if (input.name) texts.push(input.name);
   if (input.getAttribute('aria-label')) texts.push(input.getAttribute('aria-label'));
 
-  // 5. Walk up parent chain and look for label-like text
+  // 5. Walk up parent chain and look for label-like text (deep search)
   var el = input;
-  for (var i = 0; i < 5; i++) {
+  for (var i = 0; i < 8; i++) {
     el = el.parentElement;
     if (!el) break;
 
-    // Direct text children of parent
-    var children = el.childNodes;
-    for (var j = 0; j < children.length; j++) {
-      var child = children[j];
-      // Text node
-      if (child.nodeType === 3 && child.textContent.trim().length > 0 && child.textContent.trim().length < 30) {
-        texts.push(child.textContent.trim());
-      }
-      // Element with short text (label, span, div, p, h1-h6)
-      if (child.nodeType === 1 && child !== input && !child.contains(input)) {
-        var tag = child.tagName.toLowerCase();
-        var txt = child.textContent.trim();
-        if (txt.length > 0 && txt.length < 40 &&
-            (tag === 'label' || tag === 'span' || tag === 'div' || tag === 'p' ||
-             tag === 'h3' || tag === 'h4' || tag === 'h5' || tag === 'dt' || tag === 'th' ||
-             child.className.match(/label|title|header|name/i))) {
-          texts.push(txt);
-        }
+    // All child elements that are NOT the input's container
+    var allChildren = el.querySelectorAll('*');
+    for (var j = 0; j < allChildren.length; j++) {
+      var child = allChildren[j];
+      if (child.contains(input) || child === input) continue;
+      var txt = child.textContent.trim();
+      // Short text that looks like a label
+      if (txt.length > 0 && txt.length < 30 && child.children.length === 0) {
+        texts.push(txt);
       }
     }
 
-    // Also check previous sibling of parent
+    // Previous siblings of each parent level
     var prevSib = el.previousElementSibling;
-    if (prevSib && prevSib.textContent.trim().length < 40) {
-      texts.push(prevSib.textContent.trim());
+    while (prevSib) {
+      var prevTxt = prevSib.textContent.trim();
+      if (prevTxt.length > 0 && prevTxt.length < 30) {
+        texts.push(prevTxt);
+      }
+      prevSib = prevSib.previousElementSibling;
     }
+
+    // Stop if we found label-like text
+    if (texts.length > 3) break;
   }
 
   return texts.join(' ').toLowerCase();
 }
 
 // Match a label text to a profile field
-function matchField(labelText) {
+function matchField(labelText, input) {
+  // 1. 키워드 매칭
   for (var i = 0; i < FIELD_MAP.length; i++) {
     var map = FIELD_MAP[i];
-    // Check exclude keywords first
     if (map.exclude) {
       var excluded = false;
       for (var k = 0; k < map.exclude.length; k++) {
@@ -111,6 +109,20 @@ function matchField(labelText) {
       }
     }
   }
+
+  // 2. placeholder 패턴으로 추측
+  var ph = input ? (input.placeholder || '').toLowerCase() : '';
+  if (ph.includes('@') || ph.includes('domain') || ph.includes('email')) return 'email';
+  if (/^010/.test(ph) || /^\d{10,11}$/.test(ph)) return 'phone';
+  if (ph.includes('homepage') || ph.includes('http') || ph.includes('github') || ph.includes('linkedin')) return 'url';
+
+  // 3. input type으로 추측
+  if (input) {
+    if (input.type === 'email') return 'email';
+    if (input.type === 'tel') return 'phone';
+    if (input.type === 'url') return 'url';
+  }
+
   return null;
 }
 
@@ -203,7 +215,7 @@ chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
     // Log detected fields for debugging
     inputs.forEach(function(inp) {
       var label = getLabelText(inp);
-      var matched = matchField(label);
+      var matched = matchField(label, inp);
       console.log('Fillme detected:', inp.tagName, '|', label.substring(0, 50), '→', matched || '(no match)');
     });
     sendResponse({ count: inputs.length });
@@ -218,9 +230,12 @@ chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
     console.log('Fillme fillForm: found', inputs.length, 'inputs');
     console.log('Fillme profile keys:', Object.keys(profile).filter(function(k) { return profile[k]; }));
 
+    // 첫 번째 패스: 라벨/placeholder 기반 매칭
+    // 매칭 안 된 generic input은 두 번째 패스에서 순서 기반으로 추측
+
     inputs.forEach(function(input, idx) {
       var labelText = getLabelText(input);
-      var fieldKey = matchField(labelText);
+      var fieldKey = matchField(labelText, input);
       console.log('Fillme [' + idx + ']:', input.tagName, input.type || '', '| label:', labelText.substring(0, 60), '→', fieldKey || 'NO MATCH', '| value in profile:', fieldKey ? (profile[fieldKey] ? 'YES' : 'NO') : '-');
 
       if (!labelText || !fieldKey) return;
