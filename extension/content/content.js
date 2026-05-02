@@ -254,7 +254,7 @@ chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
       var fieldKey = matchField(labelTexts, input);
       console.log('Fillme [' + idx + ']:', input.tagName, input.type || '', '| labels:', JSON.stringify(labelTexts), '→', fieldKey || 'NO MATCH');
 
-      if (!labelText || !fieldKey) return;
+      if (!fieldKey) return;
       if (!profile[fieldKey] || matched[fieldKey]) return;
 
       var success = setValue(input, profile[fieldKey]);
