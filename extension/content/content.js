@@ -17,7 +17,7 @@ var FIELD_MAP = [
   { keywords: ['학점', 'gpa', '평점'], field: 'gpa' },
   // 경력
   { keywords: ['회사', '직장', '근무처', 'company', '회사명'], field: 'company' },
-  { keywords: ['직무', '직책', '직위', 'position', '포지션'], field: 'position' },
+  { keywords: ['직무', '직책', '직위', '담당직무'], field: 'position' },
   // 자격/어학
   { keywords: ['자격증', '자격', 'certification'], field: 'certs' },
   { keywords: ['어학', '외국어', '토익', 'toeic'], field: 'langTest' },
@@ -33,90 +33,107 @@ var FIELD_MAP = [
   { keywords: ['url', '홈페이지', 'github', 'linkedin', '블로그', 'blog', '유관 url'], field: 'url' }
 ];
 
-// Get label text for an input — comprehensive search
-function getLabelText(input) {
+// Get label texts for an input — returns array ordered by proximity (closest first)
+function getLabelTexts(input) {
   var texts = [];
 
-  // 1. placeholder
-  if (input.placeholder) texts.push(input.placeholder);
-
-  // 2. label[for]
+  // 1. label[for] — 가장 정확
   if (input.id) {
     try {
       var label = document.querySelector('label[for="' + CSS.escape(input.id) + '"]');
-      if (label) texts.push(label.textContent.trim());
+      if (label) texts.push(label.textContent.trim().toLowerCase());
     } catch(e) {}
   }
 
-  // 3. Parent label
+  // 2. Parent label
   var parentLabel = input.closest('label');
-  if (parentLabel) texts.push(parentLabel.textContent.trim());
+  if (parentLabel) texts.push(parentLabel.textContent.trim().toLowerCase());
 
-  // 4. name / aria-label
-  if (input.name) texts.push(input.name);
-  if (input.getAttribute('aria-label')) texts.push(input.getAttribute('aria-label'));
+  // 3. aria-label
+  if (input.getAttribute('aria-label')) texts.push(input.getAttribute('aria-label').toLowerCase());
 
-  // 5. Walk up parent chain and look for label-like text (deep search)
+  // 4. 가장 가까운 부모에서 라벨 텍스트 찾기 (2-3 레벨만)
   var el = input;
-  for (var i = 0; i < 8; i++) {
+  for (var i = 0; i < 4; i++) {
     el = el.parentElement;
     if (!el) break;
 
-    // All child elements that are NOT the input's container
-    var allChildren = el.querySelectorAll('*');
-    for (var j = 0; j < allChildren.length; j++) {
-      var child = allChildren[j];
-      if (child.contains(input) || child === input) continue;
-      var txt = child.textContent.trim();
-      // Short text that looks like a label
-      if (txt.length > 0 && txt.length < 30 && child.children.length === 0) {
-        texts.push(txt);
+    // 이 레벨의 직접 자식 중 input을 포함하지 않는 텍스트 노드/요소
+    for (var j = 0; j < el.childNodes.length; j++) {
+      var child = el.childNodes[j];
+      if (child === input || (child.nodeType === 1 && child.contains(input))) continue;
+
+      var txt = '';
+      if (child.nodeType === 3) txt = child.textContent.trim();
+      else if (child.nodeType === 1 && child.children.length === 0) txt = child.textContent.trim();
+
+      if (txt.length > 0 && txt.length < 25) {
+        texts.push(txt.toLowerCase());
+        return texts; // 가장 가까운 라벨을 찾으면 바로 반환
       }
     }
 
-    // Previous siblings of each parent level
+    // 바로 위 형제 요소 확인
     var prevSib = el.previousElementSibling;
-    while (prevSib) {
-      var prevTxt = prevSib.textContent.trim();
-      if (prevTxt.length > 0 && prevTxt.length < 30) {
-        texts.push(prevTxt);
+    if (prevSib) {
+      // 형제의 직접 텍스트만 (다른 input의 라벨은 제외)
+      var sibText = '';
+      for (var k = 0; k < prevSib.childNodes.length; k++) {
+        var sChild = prevSib.childNodes[k];
+        if (sChild.nodeType === 3 || (sChild.nodeType === 1 && sChild.children.length === 0)) {
+          var t = sChild.textContent.trim();
+          if (t.length > 0 && t.length < 25) { sibText = t; break; }
+        }
       }
-      prevSib = prevSib.previousElementSibling;
+      if (sibText) {
+        texts.push(sibText.toLowerCase());
+        return texts;
+      }
     }
-
-    // Stop if we found label-like text
-    if (texts.length > 3) break;
   }
 
-  return texts.join(' ').toLowerCase();
+  // 5. placeholder (최후의 수단)
+  if (input.placeholder) texts.push(input.placeholder.toLowerCase());
+
+  // 6. name attribute
+  if (input.name) texts.push(input.name.toLowerCase());
+
+  return texts;
 }
 
-// Match a label text to a profile field
-function matchField(labelText, input) {
-  // 1. 키워드 매칭
-  for (var i = 0; i < FIELD_MAP.length; i++) {
-    var map = FIELD_MAP[i];
-    if (map.exclude) {
-      var excluded = false;
-      for (var k = 0; k < map.exclude.length; k++) {
-        if (labelText.includes(map.exclude[k].toLowerCase())) { excluded = true; break; }
+// Match field from label texts array
+function matchField(labelTexts, input) {
+  if (typeof labelTexts === 'string') labelTexts = [labelTexts];
+
+  // 각 라벨 텍스트를 가까운 순서대로 확인
+  for (var t = 0; t < labelTexts.length; t++) {
+    var text = labelTexts[t];
+
+    for (var i = 0; i < FIELD_MAP.length; i++) {
+      var map = FIELD_MAP[i];
+      // exclude 키워드 체크
+      if (map.exclude) {
+        var excluded = false;
+        for (var k = 0; k < map.exclude.length; k++) {
+          if (text.includes(map.exclude[k].toLowerCase())) { excluded = true; break; }
+        }
+        if (excluded) continue;
       }
-      if (excluded) continue;
-    }
-    for (var j = 0; j < map.keywords.length; j++) {
-      if (labelText.includes(map.keywords[j].toLowerCase())) {
-        return map.field;
+      for (var j = 0; j < map.keywords.length; j++) {
+        if (text.includes(map.keywords[j].toLowerCase())) {
+          return map.field;
+        }
       }
     }
   }
 
-  // 2. placeholder 패턴으로 추측
-  var ph = input ? (input.placeholder || '').toLowerCase() : '';
-  if (ph.includes('@') || ph.includes('domain') || ph.includes('email')) return 'email';
+  // placeholder 패턴 추측
+  var ph = input ? (input.placeholder || '') : '';
+  if (ph.includes('@') || ph.includes('domain')) return 'email';
   if (/^010/.test(ph) || /^\d{10,11}$/.test(ph)) return 'phone';
-  if (ph.includes('homepage') || ph.includes('http') || ph.includes('github') || ph.includes('linkedin')) return 'url';
+  if (ph.includes('homepage') || ph.includes('http')) return 'url';
 
-  // 3. input type으로 추측
+  // input type 추측
   if (input) {
     if (input.type === 'email') return 'email';
     if (input.type === 'tel') return 'phone';
@@ -212,11 +229,10 @@ function highlightField(input) {
 chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
   if (request.action === 'detectFields') {
     var inputs = getInputs();
-    // Log detected fields for debugging
     inputs.forEach(function(inp) {
-      var label = getLabelText(inp);
-      var matched = matchField(label, inp);
-      console.log('Fillme detected:', inp.tagName, '|', label.substring(0, 50), '→', matched || '(no match)');
+      var labels = getLabelTexts(inp);
+      var matched = matchField(labels, inp);
+      console.log('Fillme detect:', inp.tagName, '| labels:', JSON.stringify(labels), '→', matched || '(no match)');
     });
     sendResponse({ count: inputs.length });
   }
@@ -234,9 +250,9 @@ chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
     // 매칭 안 된 generic input은 두 번째 패스에서 순서 기반으로 추측
 
     inputs.forEach(function(input, idx) {
-      var labelText = getLabelText(input);
-      var fieldKey = matchField(labelText, input);
-      console.log('Fillme [' + idx + ']:', input.tagName, input.type || '', '| label:', labelText.substring(0, 60), '→', fieldKey || 'NO MATCH', '| value in profile:', fieldKey ? (profile[fieldKey] ? 'YES' : 'NO') : '-');
+      var labelTexts = getLabelTexts(input);
+      var fieldKey = matchField(labelTexts, input);
+      console.log('Fillme [' + idx + ']:', input.tagName, input.type || '', '| labels:', JSON.stringify(labelTexts), '→', fieldKey || 'NO MATCH');
 
       if (!labelText || !fieldKey) return;
       if (!profile[fieldKey] || matched[fieldKey]) return;
