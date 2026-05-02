@@ -348,15 +348,26 @@ function parseWithGemini(text) {
     '}\n\n' +
     '이력서 텍스트:\n' + maskedText;
 
-  return fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=' + GEMINI_API_KEY, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      contents: [{ parts: [{ text: prompt }] }],
-      generationConfig: { temperature: 0.1 }
-    })
-  })
-  .then(function(res) { return res.json(); })
+  var apiUrl = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=' + GEMINI_API_KEY;
+  var body = JSON.stringify({
+    contents: [{ parts: [{ text: prompt }] }],
+    generationConfig: { temperature: 0.1 }
+  });
+
+  function callApi(retries) {
+    return fetch(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: body })
+    .then(function(res) {
+      if (res.status === 429 && retries > 0) {
+        console.log('Gemini 429, retrying in 3s... (' + retries + ' left)');
+        return new Promise(function(resolve) {
+          setTimeout(function() { resolve(callApi(retries - 1)); }, 3000);
+        });
+      }
+      return res.json();
+    });
+  }
+
+  return callApi(2)
   .then(function(data) {
     try {
       var responseText = data.candidates[0].content.parts[0].text;
@@ -623,12 +634,12 @@ function parseResumeText(text) {
   }
 
   // === 주소 ===
-  // "주    소" 패턴 또는 시/도로 시작
-  var addrMatch = flatText.match(/(?:주\s*소|거주지|현주소)\s*[:\-\|]?\s*([가-힣0-9\s\-\(\),\.·]{5,60})/);
-  if (addrMatch) result.address = addrMatch[1].trim();
-  if (!addrMatch) {
-    addrMatch = flatText.match(/(서울|부산|대구|인천|광주|대전|울산|세종|경기|강원|충북|충남|전북|전남|경북|경남|제주)[가-힣0-9\s\-\(\),\.·]{5,50}/);
-    if (addrMatch) result.address = addrMatch[0].trim();
+  // 시/도로 시작해서 숫자(번지/호수)가 나올때까지. "연" "학" 등이 나오면 중단
+  var addrMatch = flatText.match(/((?:서울|부산|대구|인천|광주|대전|울산|세종|경기|강원|충북|충남|전북|전남|경북|경남|제주)[가-힣0-9\s\-\(\),\.·]*\d+[\-\s]*\d*)/);
+  if (addrMatch) {
+    // "연 락" 이나 "학력" 등이 포함되면 그 앞까지만 자르기
+    var addr = addrMatch[1].replace(/\s*(연\s*락|학력|핵심|경력|자격|병역|교육|보유)[\s\S]*$/, '').trim();
+    result.address = addr;
   }
 
   // === 생년월일 ===
