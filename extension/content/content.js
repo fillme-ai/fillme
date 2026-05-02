@@ -22,6 +22,8 @@ var FIELD_MAP = [
   { keywords: ['자격증', '자격', 'certification'], field: 'certs' },
   { keywords: ['어학', '외국어', '토익', 'toeic'], field: 'langTest' },
   { keywords: ['점수', 'score'], field: 'langScore' },
+  // 경력 기간
+  { keywords: ['유관 경력', '경력 기간', '경력기간', '총 경력'], field: 'careerYears' },
   // 연봉
   { keywords: ['희망연봉', '희망 연봉'], field: 'salaryDesired' },
   { keywords: ['직전연봉', '직전 연봉', '현재연봉'], field: 'salaryPrev' },
@@ -30,7 +32,9 @@ var FIELD_MAP = [
   { keywords: ['장애', '장애여부', '장애정보'], field: 'disability' },
   { keywords: ['병역', '군복무', '군필', 'military'], field: 'military' },
   // URL
-  { keywords: ['url', '홈페이지', 'github', 'linkedin', '블로그', 'blog', '유관 url'], field: 'url' }
+  { keywords: ['url', '홈페이지', 'github', 'linkedin', '블로그', 'blog', '유관 url'], field: 'url' },
+  // 지원동기
+  { keywords: ['지원동기', '지원 동기', '지원사유', '지원 사유'], field: 'motivation' }
 ];
 
 // Get label texts for an input — returns array ordered by proximity (closest first)
@@ -269,6 +273,33 @@ chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
   if (request.action === 'fillForm') {
     var inputs = getInputs();
     var profile = request.profile;
+
+    // 경력 기간 자동 계산
+    if (!profile.careerYears && profile.careers && profile.careers.length > 0) {
+      var totalMonths = 0;
+      profile.careers.forEach(function(c) {
+        if (c.start) {
+          var start = c.start.replace('-', '.').replace('-', '.');
+          var endStr = c.end === '재직중' ? new Date().getFullYear() + '.' + String(new Date().getMonth()+1).padStart(2,'0') : c.end.replace('-', '.');
+          var sParts = start.split('.');
+          var eParts = endStr.split('.');
+          if (sParts.length >= 2 && eParts.length >= 2) {
+            totalMonths += (parseInt(eParts[0]) - parseInt(sParts[0])) * 12 + (parseInt(eParts[1]) - parseInt(sParts[1]));
+          }
+        }
+      });
+      var years = Math.floor(totalMonths / 12);
+      var months = totalMonths % 12;
+      profile.careerYears = years + '년' + (months > 0 ? ' ' + months + '개월' : '');
+    }
+
+    // 지원동기 AI 생성 (페이지 JD + 이력서 기반)
+    if (!profile.motivation) {
+      // 페이지에서 공고 제목/내용 추출
+      var pageTitle = document.title || '';
+      var pageText = document.body.innerText.substring(0, 1500);
+      profile._jobContext = pageTitle + ' ' + pageText.substring(0, 500);
+    }
     var filled = 0;
     var matched = {};
 
@@ -284,7 +315,40 @@ chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
       console.log('Fillme [' + idx + ']:', input.tagName, input.type || '', '| labels:', JSON.stringify(labelTexts), '→', fieldKey || 'NO MATCH');
 
       if (!fieldKey) return;
-      if (!profile[fieldKey] || matched[fieldKey]) return;
+      if (matched[fieldKey]) return;
+
+      // 보훈/장애 기본값: 프로필에 없으면 "비대상"
+      if ((fieldKey === 'veteran' || fieldKey === 'disability') && !profile[fieldKey]) {
+        profile[fieldKey] = 'no';
+      }
+
+      // 경력 기간: select인 경우 가장 가까운 옵션 선택
+      if (fieldKey === 'careerYears' && profile[fieldKey] && input.tagName === 'SELECT') {
+        var years = parseInt(profile.careerYears);
+        var options = Array.from(input.options);
+        var bestMatch = null;
+        options.forEach(function(opt) {
+          var optYears = parseInt(opt.text);
+          if (!isNaN(optYears) && optYears <= years) bestMatch = opt;
+        });
+        // "7년" 이상 같은 범위 옵션 찾기
+        if (!bestMatch) {
+          bestMatch = options.find(function(opt) {
+            return opt.text.includes(years + '년') || opt.text.includes(years + '~');
+          });
+        }
+        if (bestMatch) {
+          input.value = bestMatch.value;
+          input.dispatchEvent(new Event('change', { bubbles: true }));
+          highlightField(input);
+          matched[fieldKey] = true;
+          filled++;
+          console.log('Fillme FILLED:', fieldKey, '=', bestMatch.text);
+        }
+        return;
+      }
+
+      if (!profile[fieldKey]) return;
 
       var success = setValue(input, profile[fieldKey]);
       if (success) {
@@ -296,6 +360,64 @@ chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
     });
 
     console.log('Fillme total filled:', filled, '| matched:', JSON.stringify(matched));
+
+    // 지원동기 AI 생성 (매칭된 textarea가 있고 비어있으면)
+    var motivationInput = null;
+    inputs.forEach(function(inp) {
+      var labels = getLabelTexts(inp);
+      var fk = matchField(labels, inp);
+      if (fk === 'motivation' && inp.tagName === 'TEXTAREA') motivationInput = inp;
+    });
+
+    if (motivationInput && !motivationInput.value && profile.name) {
+      // API 키 가져와서 지원동기 생성
+      chrome.storage.local.get('apiKey', function(data) {
+        if (!data.apiKey) return;
+        var jobTitle = document.title || '';
+        var jobDesc = '';
+        // 페이지에서 공고 내용 추출 시도
+        var mainContent = document.querySelector('main, [class*="content"], [class*="detail"]');
+        if (mainContent) jobDesc = mainContent.innerText.substring(0, 1000);
+        else jobDesc = document.body.innerText.substring(0, 1000);
+
+        var resumeSummary = '이름: ' + (profile.name || '') +
+          ', 경력: ' + (profile.careers || []).map(function(c) { return c.company + ' ' + c.position + ' (' + c.start + '~' + c.end + ')'; }).join(', ') +
+          ', 학력: ' + (profile.education || []).map(function(e) { return e.school + ' ' + e.major; }).join(', ') +
+          ', 자격증: ' + (profile.certs || '');
+
+        var prompt = '채용 지원서의 지원동기를 작성해주세요.\n' +
+          '조건:\n' +
+          '- 200~400자 이내\n' +
+          '- 지원자의 경력과 이 포지션의 연관성을 강조\n' +
+          '- 구체적이고 진정성 있게\n' +
+          '- 존댓말로 작성\n' +
+          '- 텍스트만 출력 (JSON 아님)\n\n' +
+          '공고 제목: ' + jobTitle + '\n' +
+          '공고 내용: ' + jobDesc.substring(0, 500) + '\n\n' +
+          '지원자 정보: ' + resumeSummary;
+
+        fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=' + data.apiKey, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: prompt }] }],
+            generationConfig: { temperature: 0.7 }
+          })
+        })
+        .then(function(res) { return res.json(); })
+        .then(function(aiData) {
+          try {
+            var motivation = aiData.candidates[0].content.parts[0].text;
+            setValue(motivationInput, motivation.trim());
+            highlightField(motivationInput);
+            console.log('Fillme: 지원동기 AI 생성 완료');
+          } catch(e) {
+            console.log('Fillme: 지원동기 생성 실패', e);
+          }
+        });
+      });
+    }
+
     sendResponse({ filled: filled });
   }
 
