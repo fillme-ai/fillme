@@ -486,6 +486,46 @@ function geminiToProfile(parsed) {
   return profile;
 }
 
+// Summarize career descriptions with AI
+function summarizeCareerDescriptions(detailText, careers) {
+  if (!GEMINI_API_KEY) return Promise.resolve();
+
+  var prompt = '아래는 이력서의 상세 경력 내용입니다. 각 회사별로 주요 업무를 1~2줄로 간결하게 요약해주세요.\n' +
+    '채용 지원서에 쓸 수 있도록 핵심만 짧게 작성해주세요.\n' +
+    '반드시 JSON 형식으로만 출력하세요: [{"company":"회사명","summary":"요약"}]\n\n' +
+    '회사 목록: ' + careers.map(function(c) { return c.company; }).join(', ') + '\n\n' +
+    '상세 경력:\n' + detailText.substring(0, 3000);
+
+  return fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=' + GEMINI_API_KEY, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      contents: [{ parts: [{ text: prompt }] }],
+      generationConfig: { temperature: 0.2, responseMimeType: 'application/json' }
+    })
+  })
+  .then(function(res) { return res.json(); })
+  .then(function(data) {
+    try {
+      var responseText = data.candidates[0].content.parts[0].text;
+      var summaries = JSON.parse(responseText);
+      // 매칭해서 career에 description 저장
+      summaries.forEach(function(s) {
+        careers.forEach(function(career) {
+          if (career.company && s.company && career.company.includes(s.company.replace(/㈜|\(주\)/g, ''))) {
+            career.description = s.summary;
+          }
+        });
+      });
+    } catch(e) {
+      console.error('Summary parse error:', e);
+    }
+  })
+  .catch(function(err) {
+    console.error('Summary API error:', err);
+  });
+}
+
 // ===== Resume File Upload & Parsing =====
 
 // PDF.js worker setup
@@ -582,6 +622,29 @@ function parsePDF(file) {
               return profile[k] && !k.startsWith('_');
             }).length;
             showUploadSuccess(count, displayResult);
+
+            // 경력 상세 업무 AI 요약
+            var detailText = profile._careerDetailText || '';
+            if (detailText && GEMINI_API_KEY && profile._allCareers && profile._allCareers.length > 0) {
+              summarizeCareerDescriptions(detailText, profile._allCareers).then(function() {
+                // 요약 결과를 UI에 반영
+                var cards = document.querySelectorAll('#careerList .entry-card');
+                profile._allCareers.forEach(function(career, i) {
+                  if (career.description && cards[i]) {
+                    var textarea = cards[i].querySelector('[data-field="description"]');
+                    if (textarea) {
+                      textarea.value = career.description;
+                      textarea.style.backgroundColor = '#e8f5e9';
+                      setTimeout(function() { textarea.style.backgroundColor = ''; }, 5000);
+                    }
+                  }
+                });
+                // 재저장
+                var saveProfile2 = collectAllData();
+                chrome.storage.local.set({ profile: saveProfile2 });
+                console.log('Career descriptions summarized');
+              });
+            }
 
             // 자동 저장
             var saveProfile = collectAllData();
@@ -784,35 +847,10 @@ function parseResumeText(text) {
     result.certs = result._allCerts.join(', ');
   }
 
-  // === 경력별 주요 업무 추출 ===
-  // "상세경력사항" 이후에서 각 경력의 프로젝트 제목 추출
+  // === 경력별 주요 업무: 상세경력사항 원문 저장 (AI 요약용) ===
   var detailSections = flatText.split(/상세경력사항/);
-  if (detailSections.length > 1 && result._allCareers.length > 0) {
-    var detailText = detailSections[1];
-    result._allCareers.forEach(function(career) {
-      // 해당 기간으로 시작하는 섹션 찾기
-      var startDate = career.start.replace('-', '.');
-      var idx = detailText.indexOf(startDate);
-      if (idx >= 0) {
-        var section = detailText.substring(idx);
-        // 다음 경력 시작 전까지 잘라내기
-        var nextCareer = section.match(/\n\d{4}\.\d{2}\s*~/);
-        if (nextCareer) section = section.substring(0, nextCareer.index);
-        // 프로젝트 제목 추출 (숫자. 제목 패턴)
-        var projects = [];
-        var projRegex = /\d+\.\s*([^\n✓▸\[]{3,50})/g;
-        var projM;
-        while ((projM = projRegex.exec(section)) !== null) {
-          var title = projM[1].trim();
-          if (!/주요\s*업무|성과/.test(title)) {
-            projects.push(title);
-          }
-        }
-        if (projects.length > 0) {
-          career.description = projects.join(', ');
-        }
-      }
-    });
+  if (detailSections.length > 1) {
+    result._careerDetailText = detailSections[1].split(/기타사항|보유스킬/)[0];
   }
 
   // === 어학 ===
