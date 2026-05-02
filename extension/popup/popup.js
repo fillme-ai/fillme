@@ -732,10 +732,17 @@ function parseResumeText(text) {
   text = text.replace(/자\s*격\s*사\s*항/g, '자격사항');
   text = text.replace(/병\s*역\s*사\s*항/g, '병역사항');
   text = text.replace(/해\s*병/g, '해병');
+  // 부서명 공백 정리 ("리테일 사업 팀" → "리테일사업팀")
+  text = text.replace(/\s+(팀|부|실|파트|본부|센터)/g, '$1');
+  // 직급 공백 정리 ("선임 연구원" → "선임연구원")
+  text = text.replace(/(선임|수석|책임|주임)\s+(연구원|연구)/g, '$1$2');
+  text = text.replace(/경\s*영\s*학/g, '경영학');
 
   var lines = text.split(/\n/).map(function(l) { return l.trim(); });
   var fullText = text.replace(/[ \t]+/g, ' ');
   var flatText = text.replace(/\s+/g, ' ');
+
+  console.log('Cleaned flatText:', flatText.substring(0, 500));
 
   // === 이름 ===
   // "성    명" + 다음에 나오는 한글 2~4자
@@ -777,6 +784,7 @@ function parseResumeText(text) {
   var eduSections = flatText.split(/학력사항/);
   var eduText = eduSections.length > 1 ? eduSections[1] : flatText;
   eduText = eduText.split(/핵심역량|경력사항|자격사항|기타사항/)[0];
+  console.log('Education section text:', eduText.substring(0, 300));
   var eduRegex = /(\d{4}\.\d{2})\s*~\s*(\d{4}\.\d{2})\s+(.*?)\s+졸업/g;
   var eduM;
   while ((eduM = eduRegex.exec(eduText)) !== null) {
