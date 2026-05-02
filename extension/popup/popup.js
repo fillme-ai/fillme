@@ -741,6 +741,20 @@ function parseResumeText(text) {
   text = text.replace(/유\s*통\s*관\s*리/g, '유통관리');
   text = text.replace(/그\s*래\s*픽\s*기\s*술/g, '그래픽기술');
   text = text.replace(/정\s*보\s*처\s*리/g, '정보처리');
+  text = text.replace(/정\s*보\s*미\s*디\s*어/g, '정보미디어');
+  text = text.replace(/엘\s*앤\s*피/g, '엘앤피');
+  text = text.replace(/코\s*스\s*메\s*틱/g, '코스메틱');
+  text = text.replace(/웅\s*진\s*씽\s*크\s*빅/g, '웅진씽크빅');
+  // 학교명 앞 한글 붙이기 ("수원 대학교" → "수원대학교", "현대 고등학교" → "현대고등학교")
+  text = text.replace(/([가-힣]+)\s+(대학교)/g, '$1$2');
+  text = text.replace(/([가-힣]+)\s+(고등학교)/g, '$1$2');
+  // 부서명 내부 공백 정리 ("웹 플랫폼팀" → "웹플랫폼팀", "EduTech 개발팀" → "EduTech개발팀")
+  text = text.replace(/([가-힣a-zA-Z]+)\s+([가-힣]*(?:팀|부|실|파트|본부|센터))/g, '$1$2');
+  // 무신사, 파트너성장지원팀 등 공백 정리
+  text = text.replace(/파\s*트\s*너/g, '파트너');
+  text = text.replace(/리\s*테\s*일/g, '리테일');
+  // "404 - 802" → "404-802", "010 - 7336 - 7946" → "010-7336-7946"
+  text = text.replace(/(\d+)\s*-\s*(\d+)/g, '$1-$2');
 
   var lines = text.split(/\n/).map(function(l) { return l.trim(); });
   var fullText = text.replace(/[ \t]+/g, ' ');
@@ -861,10 +875,36 @@ function parseResumeText(text) {
     result.certs = result._allCerts.join(', ');
   }
 
-  // === 경력별 주요 업무: 상세경력사항 원문 저장 (AI 요약용) ===
+  // === 경력별 주요 업무 ===
   var detailSections = flatText.split(/상세경력사항/);
   if (detailSections.length > 1) {
-    result._careerDetailText = detailSections[1].split(/기타사항|보유스킬/)[0];
+    var detailText = detailSections[1].split(/기타사항|보유스킬/)[0];
+    result._careerDetailText = detailText;
+    // 로컬 폴백: 각 경력의 프로젝트 제목 추출
+    if (result._allCareers.length > 0) {
+      result._allCareers.forEach(function(career, idx) {
+        var startDate = career.start.replace('-', '.');
+        var pos = detailText.indexOf(startDate);
+        if (pos < 0) return;
+        var section = detailText.substring(pos);
+        // 다음 경력 시작까지 잘라내기
+        var nextDate = section.substring(10).match(/\d{4}\.\d{2}\s*~/);
+        if (nextDate) section = section.substring(0, nextDate.index + 10);
+        // 프로젝트 제목 추출
+        var projects = [];
+        var pRegex = /\d+\.\s+([^\n✓▸\[]{3,50})/g;
+        var pM;
+        while ((pM = pRegex.exec(section)) !== null) {
+          var t = pM[1].trim().replace(/\s+/g, ' ');
+          if (!/주요\s*업무|성과|업무\s*내용/.test(t) && t.length > 3) {
+            projects.push(t);
+          }
+        }
+        if (projects.length > 0) {
+          career.description = projects.join(' / ');
+        }
+      });
+    }
   }
 
   // === 어학 ===
