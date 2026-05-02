@@ -92,10 +92,39 @@ function getLabelTexts(input) {
     }
   }
 
-  // 5. placeholder (최후의 수단)
+  // 5. 좌표 기반: input 바로 위에 있는 텍스트 요소 찾기
+  try {
+    var inputRect = input.getBoundingClientRect();
+    var allElements = document.querySelectorAll('span, div, p, label, h3, h4, h5, dt, th');
+    var closest = null;
+    var closestDist = Infinity;
+    for (var ci = 0; ci < allElements.length; ci++) {
+      var cel = allElements[ci];
+      if (cel.contains(input) || cel.children.length > 2) continue;
+      var txt = cel.textContent.trim();
+      if (txt.length < 1 || txt.length > 25) continue;
+      var celRect = cel.getBoundingClientRect();
+      // input 위에 있고, 가로 위치가 비슷한 요소
+      if (celRect.bottom <= inputRect.top + 5 && celRect.bottom > inputRect.top - 80) {
+        var hDist = Math.abs(celRect.left - inputRect.left);
+        var vDist = inputRect.top - celRect.bottom;
+        var dist = vDist + hDist * 0.5;
+        if (dist < closestDist) {
+          closestDist = dist;
+          closest = txt;
+        }
+      }
+    }
+    if (closest) {
+      texts.push(closest.toLowerCase());
+      return texts;
+    }
+  } catch(e) {}
+
+  // 6. placeholder (최후의 수단)
   if (input.placeholder) texts.push(input.placeholder.toLowerCase());
 
-  // 6. name attribute
+  // 7. name attribute
   if (input.name) texts.push(input.name.toLowerCase());
 
   return texts;
