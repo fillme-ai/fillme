@@ -709,12 +709,14 @@ function parseResumeText(text) {
     if (birthMatch) result.birth = birthMatch[1].replace(/[\.\s\/]/g, '-');
   }
 
-  // === 학력 (다중) ===
+  // === 학력 (다중) — "학력사항" 섹션에서만 파싱 ===
   result._allEducation = [];
-  // "2014.03 ~ 2018.02 수원 대학교 정보미디어학과 졸업" 패턴
+  var eduSections = flatText.split(/학력사항/);
+  var eduText = eduSections.length > 1 ? eduSections[1] : flatText;
+  eduText = eduText.split(/핵심역량|경력사항|자격사항|기타사항/)[0];
   var eduRegex = /(\d{4}\.\d{2})\s*~\s*(\d{4}\.\d{2})\s+(.*?)\s+졸업/g;
   var eduM;
-  while ((eduM = eduRegex.exec(flatText)) !== null) {
+  while ((eduM = eduRegex.exec(eduText)) !== null) {
     var eduText = eduM[3].trim();
     // "수원 대학교 정보미디어학과" → school + major 분리
     var schoolMatch = eduText.match(/(.*?(?:대학교|고등학교|학점은행제))\s*(.*)/);
@@ -741,19 +743,20 @@ function parseResumeText(text) {
   var gpaMatch = flatText.match(/(\d\.\d{1,2})\s*[\/\|]\s*(\d\.\d{1,2})/);
   if (gpaMatch) result.gpa = gpaMatch[0].replace('|', '/');
 
-  // === 경력 (다중) ===
+  // === 경력 (다중) — "경력사항" 이후 텍스트에서만 파싱 ===
   result._allCareers = [];
-  // "2024.08 ~ 재직중 F&F / 웹플랫폼팀 / 대리" 패턴
-  // "2024.08 ~ 재직중 F&F / 웹플랫폼팀 / 대리" 패턴
+  var careerSections = flatText.split(/경력사항/);
+  var careerText = careerSections.length > 1 ? careerSections[1] : '';
+  careerText = careerText.split(/자격사항|기타사항|보유스킬|교육사항|병역사항/)[0];
   var careerRegex = /(\d{4}\.\d{2})\s*~\s*(재직중|현재|\d{4}\.\d{2})\s+(.*?)\s*\/\s*(.*?)\s*\/\s*(\S+)/g;
   var carM;
-  while ((carM = careerRegex.exec(flatText)) !== null) {
+  while ((carM = careerRegex.exec(careerText)) !== null) {
     result._allCareers.push({
       start: carM[1].replace('.', '-'),
       end: carM[2] === '재직중' || carM[2] === '현재' ? '재직중' : carM[2].replace('.', '-'),
       company: carM[3].replace(/^[㈜\(주\)]/, '').trim(),
-      department: carM[4],
-      position: carM[5]
+      department: carM[4].trim(),
+      position: carM[5].trim()
     });
   }
   if (result._allCareers.length > 0) {
