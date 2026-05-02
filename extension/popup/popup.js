@@ -170,16 +170,24 @@ chrome.storage.local.get('profile', function(data) {
   }
 });
 
-// ===== Save profile =====
-document.getElementById('btnSave').addEventListener('click', function() {
-  var profile = collectAllData();
-  chrome.storage.local.set({ profile: profile }, function() {
-    var status = document.getElementById('saveStatus');
-    status.textContent = '✅ 이력서가 저장되었습니다! (학력 ' + (profile.education||[]).length + '개, 경력 ' + (profile.careers||[]).length + '개, 자격증 ' + (profile.certificates||[]).length + '개)';
-    status.className = 'status success';
-    setTimeout(function() { status.className = 'status'; }, 3000);
-  });
-});
+// ===== Auto-save on any input change =====
+var saveTimer = null;
+function autoSave() {
+  if (saveTimer) clearTimeout(saveTimer);
+  saveTimer = setTimeout(function() {
+    var profile = collectAllData();
+    chrome.storage.local.set({ profile: profile }, function() {
+      var status = document.getElementById('saveStatus');
+      status.textContent = '✅ 자동 저장됨';
+      status.className = 'status success';
+      setTimeout(function() { status.className = 'status'; }, 1500);
+    });
+  }, 500);
+}
+
+// Listen for input changes on the entire profile tab
+document.getElementById('tab-profile').addEventListener('input', autoSave);
+document.getElementById('tab-profile').addEventListener('change', autoSave);
 
 // ===== Detect fields on current page =====
 chrome.tabs.query({ active: true, currentWindow: true }, function(tabs) {
