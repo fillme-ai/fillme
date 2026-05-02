@@ -4,7 +4,7 @@
   "version": "0.2.0",
   "description": "이력서 한 번이면, 지원 끝. 어떤 채용 사이트든 자동으로 입력해드립니다.",
   "permissions": ["storage", "activeTab"],
-  "host_permissions": ["https://api.openai.com/*"],
+  "host_permissions": ["https://generativelanguage.googleapis.com/*"],
   "content_security_policy": {
     "extension_pages": "script-src 'self'; object-src 'self'"
   },

@@ -140,13 +140,13 @@ document.getElementById('tab-profile').addEventListener('click', function(e) {
 // ===== API Key save =====
 document.getElementById('saveApiKey').addEventListener('click', function() {
   var key = document.getElementById('apiKeyInput').value;
-  if (!key.startsWith('sk-')) {
+  if (!key.startsWith('AIza')) {
     var s = document.getElementById('apiKeyStatus');
-    s.textContent = '⚠️ sk-로 시작하는 유효한 키를 입력하세요';
+    s.textContent = '⚠️ AIza로 시작하는 유효한 Gemini 키를 입력하세요';
     s.className = 'status error';
     return;
   }
-  OPENAI_API_KEY = key;
+  GEMINI_API_KEY = key;
   chrome.storage.local.set({ apiKey: key }, function() {
     var s = document.getElementById('apiKeyStatus');
     s.textContent = '✅ API 키가 저장되었습니다';
@@ -274,13 +274,13 @@ document.getElementById('btnFill').addEventListener('click', function() {
   });
 });
 
-// ===== OpenAI API =====
-var OPENAI_API_KEY = '';
+// ===== Gemini API =====
+var GEMINI_API_KEY = '';
 
 // Load API key from local storage
 chrome.storage.local.get('apiKey', function(data) {
   if (data.apiKey) {
-    OPENAI_API_KEY = data.apiKey;
+    GEMINI_API_KEY = data.apiKey;
     var keyInput = document.getElementById('apiKeyInput');
     if (keyInput) keyInput.value = '••••' + data.apiKey.slice(-8);
   }
@@ -376,57 +376,49 @@ function parseWithGemini(text) {
     '}\n\n' +
     '이력서 텍스트:\n' + maskedText;
 
-  if (!OPENAI_API_KEY) {
+  if (!GEMINI_API_KEY) {
     console.log('No API key set');
     return Promise.resolve(null);
   }
 
+  var apiUrl = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=' + GEMINI_API_KEY;
   var apiBody = JSON.stringify({
-    model: 'gpt-4o-mini',
-    messages: [
-      { role: 'system', content: '당신은 이력서 파싱 전문가입니다. 반드시 유효한 JSON만 출력하세요. 다른 텍스트는 출력하지 마세요.' },
-      { role: 'user', content: prompt }
-    ],
-    temperature: 0.1,
-    response_format: { type: 'json_object' }
+    contents: [{ parts: [{ text: prompt }] }],
+    generationConfig: { temperature: 0.1, responseMimeType: 'application/json' }
   });
 
-  function callGPT(retries) {
-    return fetch('https://api.openai.com/v1/chat/completions', {
+  function callGemini(retries) {
+    return fetch(apiUrl, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer ' + OPENAI_API_KEY
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: apiBody
     })
     .then(function(res) {
       if (res.status === 429 && retries > 0) {
-        console.log('GPT 429, retrying in 5s... (' + retries + ' left)');
+        console.log('Gemini 429, retrying in 10s... (' + retries + ' left)');
         return new Promise(function(resolve) {
-          setTimeout(function() { resolve(callGPT(retries - 1)); }, 5000);
+          setTimeout(function() { resolve(callGemini(retries - 1)); }, 10000);
         });
       }
       return res.json();
     });
   }
 
-  return callGPT(3)
+  return callGemini(2)
   .then(function(data) {
     try {
-      var responseText = data.choices[0].message.content;
-      console.log('GPT response:', responseText.substring(0, 200));
+      var responseText = data.candidates[0].content.parts[0].text;
+      console.log('Gemini response:', responseText.substring(0, 300));
       var parsed = JSON.parse(responseText);
-      // 마스킹 해제
       parsed = unmaskResult(parsed, masks);
       return parsed;
     } catch(e) {
-      console.error('GPT parse error:', e, data);
+      console.error('Gemini parse error:', e, data);
       return null;
     }
   })
   .catch(function(err) {
-    console.error('OpenAI API error:', err);
+    console.error('Gemini API error:', err);
     return null;
   });
 }
