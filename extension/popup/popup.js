@@ -737,6 +737,10 @@ function parseResumeText(text) {
   // 직급 공백 정리 ("선임 연구원" → "선임연구원")
   text = text.replace(/(선임|수석|책임|주임)\s+(연구원|연구)/g, '$1$2');
   text = text.replace(/경\s*영\s*학/g, '경영학');
+  text = text.replace(/텔\s*레\s*마\s*케\s*팅/g, '텔레마케팅');
+  text = text.replace(/유\s*통\s*관\s*리/g, '유통관리');
+  text = text.replace(/그\s*래\s*픽\s*기\s*술/g, '그래픽기술');
+  text = text.replace(/정\s*보\s*처\s*리/g, '정보처리');
 
   var lines = text.split(/\n/).map(function(l) { return l.trim(); });
   var fullText = text.replace(/[ \t]+/g, ' ');
@@ -782,27 +786,29 @@ function parseResumeText(text) {
   // === 학력 (다중) — "학력사항" 섹션에서만 파싱 ===
   result._allEducation = [];
   var eduSections = flatText.split(/학력사항/);
-  var eduText = eduSections.length > 1 ? eduSections[1] : flatText;
-  eduText = eduText.split(/핵심역량|경력사항|자격사항|기타사항/)[0];
-  console.log('Education section text:', eduText.substring(0, 300));
-  var eduRegex = /(\d{4}\.\d{2})\s*~\s*(\d{4}\.\d{2})\s+(.*?)\s+졸업/g;
-  var eduM;
-  while ((eduM = eduRegex.exec(eduText)) !== null) {
-    var eduText = eduM[3].trim();
-    // "수원 대학교 정보미디어학과" → school + major 분리
-    var schoolMatch = eduText.match(/(.*?(?:대학교|고등학교|학점은행제))\s*(.*)/);
+  var eduSectionText = eduSections.length > 1 ? eduSections[1] : '';
+  eduSectionText = eduSectionText.split(/핵심역량|경력사항|자격사항|기타사항/)[0];
+  // "졸업"으로 분할하여 각 항목 파싱
+  var eduParts = eduSectionText.split(/졸업/);
+  eduParts.forEach(function(part) {
+    var dateMatch = part.match(/(\d{4}\.\d{2})\s*~\s*(\d{4}\.\d{2})/);
+    if (!dateMatch) return;
+    var afterDate = part.substring(part.indexOf(dateMatch[2]) + dateMatch[2].length).trim();
+    // "수원 대학교 정보미디어학과" 에서 school + major 분리
+    var schoolMatch = afterDate.match(/(.*?(?:대학교|고등학교|학점은행제))\s*(.*)/);
     var edu = {
-      start: eduM[1].replace('.', '-'),
-      end: eduM[2].replace('.', '-'),
-      school: schoolMatch ? schoolMatch[1].trim() : eduText,
-      major: schoolMatch && schoolMatch[2] ? schoolMatch[2].replace(/\(.*\)/, '').trim() : ''
+      start: dateMatch[1].replace('.', '-'),
+      end: dateMatch[2].replace('.', '-'),
+      school: schoolMatch ? schoolMatch[1].trim() : afterDate.trim(),
+      major: schoolMatch && schoolMatch[2] ? schoolMatch[2].replace(/\(.*\)/g, '').trim() : ''
     };
     if (/대학교/.test(edu.school)) edu.degree = '대학교';
     else if (/고등학교/.test(edu.school)) edu.degree = '고등학교';
     else if (/학점은행제/.test(edu.school)) edu.degree = '대학교';
     else edu.degree = '';
     result._allEducation.push(edu);
-  }
+  });
+  console.log('Education parsed:', result._allEducation.length, result._allEducation);
   if (result._allEducation.length > 0) {
     result.school = result._allEducation[0].school;
     result.major = result._allEducation[0].major;
